@@ -5,17 +5,32 @@ import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Enums.UserStatus;
 import com.ga.investmentportfolio.Exception.InformationExistException;
+import com.ga.investmentportfolio.Exception.InformationNotFoundException;
+import com.ga.investmentportfolio.Exception.TokenExpiredException;
+import com.ga.investmentportfolio.Model.EmailVerificationToken;
+import com.ga.investmentportfolio.Model.Portfolio;
 import com.ga.investmentportfolio.Model.User;
+import com.ga.investmentportfolio.Repository.EmailVerificationTokenRepository;
+import com.ga.investmentportfolio.Repository.PortfolioRepository;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final EmailService emailService;
+    private final PortfolioRepository portfolioRepository;
 
     public RegisterResponse register(RegisterRequest request){
         System.out.println("service calling register ==>");
@@ -41,12 +56,57 @@ public class AuthService {
         //save User
         userRepository.save(userObject);
 
+        //generate unique token
+        String token = UUID.randomUUID().toString();
+
+        //create EmailVerificationToken object
+        EmailVerificationToken emailVerificationToken = new EmailVerificationToken();
+
+        emailVerificationToken.setToken(token);
+        emailVerificationToken.setUser(userObject); //connect it to userObject
+        emailVerificationToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+
+        //save it using EmailVerificationTokenRepository
+        emailVerificationTokenRepository.save(emailVerificationToken);
+
+        //send verification email
+        emailService.sendVerificationEmail(userObject.getEmailAddress(), token);
+
         //create RegisterResponse
         RegisterResponse registerResponse = new RegisterResponse("Registration successful, Please verify your email using the link.");
 
         //return RegisterResponse
         return registerResponse;
 
+
+    }
+
+    //method to verify email
+    public void verifyEmail(String token) {
+        EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new InformationNotFoundException("Verification token not found"));
+
+        if(verificationToken.getExpiresAt().isBefore(LocalDateTime.now())){
+            throw new TokenExpiredException("Verification token has expired");
+        }
+
+        //get the user associated with the token
+        User user = verificationToken.getUser();
+
+        //check user status
+        if (user.getStatus() != UserStatus.UNVERIFIED){
+            throw new InformationExistException("Email address has already been verified");
+        }
+
+        //activate user
+        user.setStatus(UserStatus.ACTIVE);
+        userRepository.save(user);
+
+        //create user portfolio
+        Portfolio portfolio = new Portfolio();
+        portfolio.setUser(user);
+        portfolio.setCashBalance(new BigDecimal("100000.00"));
+        portfolioRepository.save(portfolio);
 
     }
 
