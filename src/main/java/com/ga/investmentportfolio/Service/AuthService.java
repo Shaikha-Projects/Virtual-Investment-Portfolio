@@ -22,6 +22,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final EmailService emailService;
 
     public RegisterResponse register(RegisterRequest request){
         System.out.println("service calling register ==>");
@@ -59,6 +60,9 @@ public class AuthService {
 
         //save it using EmailVerificationTokenRepository
         emailVerificationTokenRepository.save(emailVerificationToken);
+
+        //send verification email
+        emailService.sendVerificationEmail(userObject.getEmailAddress(), token);
 
         //create RegisterResponse
         RegisterResponse registerResponse = new RegisterResponse("Registration successful, Please verify your email using the link.");
