@@ -18,19 +18,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InformationExistException.class)
     public ResponseEntity<ErrorResponse> handleInformationExistException(InformationExistException exception) {
 
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
 
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse); //constructs the HTTP response
     }
 
     //to validate user input when registration
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationException(MethodArgumentNotValidException exception) {
 
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> errors = new HashMap<>(); //an empty map to collect all validation
 
+        //gets all the validation results, then loops through every validation error
         exception.getBindingResult().getFieldErrors().forEach(error ->
-                        errors.put(error.getField(), error.getDefaultMessage()));
+                        errors.put(error.getField(), error.getDefaultMessage())); //get fields and it's validation message
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }

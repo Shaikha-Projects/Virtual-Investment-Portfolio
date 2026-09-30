@@ -69,4 +69,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Watchlist> watchlists;
 
+    //one user may have more than one verification token
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<EmailVerificationToken> emailVerificationTokens;
+
 }

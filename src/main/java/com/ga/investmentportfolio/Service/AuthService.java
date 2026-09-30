@@ -5,17 +5,23 @@ import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Enums.UserStatus;
 import com.ga.investmentportfolio.Exception.InformationExistException;
+import com.ga.investmentportfolio.Model.EmailVerificationToken;
 import com.ga.investmentportfolio.Model.User;
+import com.ga.investmentportfolio.Repository.EmailVerificationTokenRepository;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     public RegisterResponse register(RegisterRequest request){
         System.out.println("service calling register ==>");
@@ -40,6 +46,19 @@ public class AuthService {
 
         //save User
         userRepository.save(userObject);
+
+        //generate unique token
+        String token = UUID.randomUUID().toString();
+
+        //create EmailVerificationToken object
+        EmailVerificationToken emailVerificationToken = new EmailVerificationToken();
+
+        emailVerificationToken.setToken(token);
+        emailVerificationToken.setUser(userObject); //connect it to userObject
+        emailVerificationToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+
+        //save it using EmailVerificationTokenRepository
+        emailVerificationTokenRepository.save(emailVerificationToken);
 
         //create RegisterResponse
         RegisterResponse registerResponse = new RegisterResponse("Registration successful, Please verify your email using the link.");
