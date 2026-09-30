@@ -12,21 +12,21 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Getter
 public class RegisterRequest {
-    @NotBlank
+    @NotBlank(message = "First name is required")
     private String firstName;
 
-    @NotBlank
+    @NotBlank(message = "Last name is required")
     private String lastName;
 
-    @NotBlank
-    @Pattern(regexp = "\\d{8}") // \d = a digit (0-9), {8} numbers
+    @NotBlank (message = "Phone number is required")
+    @Pattern(regexp = "\\d{8}", message = "Phone number must be exactly 8 numbers") // \d = a digit (0-9), {8} numbers
     private String phoneNumber;
 
-    @NotBlank
-    @Email
+    @NotBlank (message = "Email Address is required")
+    @Email(message = "Email Address must be valid")
     private String emailAddress;
 
-    @NotBlank
-    @Size(min=8)
+    @NotBlank (message = "Password is required")
+    @Size(min=8, message = "Password must be at leat 8 characters")
     private String password;
 }
