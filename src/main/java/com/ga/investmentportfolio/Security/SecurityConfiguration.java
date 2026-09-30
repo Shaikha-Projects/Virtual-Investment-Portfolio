@@ -27,6 +27,7 @@ public class SecurityConfiguration {
                         .requestMatchers(
                                 "/auth/register",
                                 "/auth/verify",
+                                "/auth/login",
                                 "/error"
                         ).permitAll() //public
                         .anyRequest().authenticated()); //everything else is authenticated
