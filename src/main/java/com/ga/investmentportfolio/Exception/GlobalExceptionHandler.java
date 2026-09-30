@@ -35,4 +35,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
+
+    //when information not found
+    @ExceptionHandler(InformationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInformationNotFoundException(InformationNotFoundException exception){
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse); //constructs the HTTP response
+    }
+
+    //when token has expired
+    @ExceptionHandler(TokenExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleTokenExpiredException(TokenExpiredException exception){
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.GONE).body(errorResponse); //constructs the HTTP response
+    }
 }

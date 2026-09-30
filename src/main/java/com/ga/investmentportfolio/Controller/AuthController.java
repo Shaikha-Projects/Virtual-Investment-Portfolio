@@ -10,10 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -31,6 +28,15 @@ public class AuthController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<RegisterResponse> verifyEmail(@RequestParam String token){
+        System.out.println("controller calling verifyEmail ==>");
+
+        authService.verifyEmail(token);
+
+        return ResponseEntity.ok(new RegisterResponse("Email verified successfully"));
     }
 
 
