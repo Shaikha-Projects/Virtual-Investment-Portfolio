@@ -1,18 +1,20 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.DTO.Request.LoginRequest;
 import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
+import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Enums.UserStatus;
-import com.ga.investmentportfolio.Exception.InformationExistException;
-import com.ga.investmentportfolio.Exception.InformationNotFoundException;
-import com.ga.investmentportfolio.Exception.TokenExpiredException;
+import com.ga.investmentportfolio.Exception.*;
 import com.ga.investmentportfolio.Model.EmailVerificationToken;
 import com.ga.investmentportfolio.Model.Portfolio;
 import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Repository.EmailVerificationTokenRepository;
 import com.ga.investmentportfolio.Repository.PortfolioRepository;
 import com.ga.investmentportfolio.Repository.UserRepository;
+import com.ga.investmentportfolio.Security.JWTUtils;
+import com.ga.investmentportfolio.Security.MyUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final PortfolioRepository portfolioRepository;
+    private final JWTUtils jwtUtils;
 
     public RegisterResponse register(RegisterRequest request){
         System.out.println("service calling register ==>");
@@ -108,6 +111,33 @@ public class AuthService {
         portfolio.setCashBalance(new BigDecimal("100000.00"));
         portfolioRepository.save(portfolio);
 
+    }
+
+    public LoginResponse login(LoginRequest request){
+        User user = userRepository.findByEmailAddress(request.getEmailAddress())
+                .orElseThrow(() -> new InformationNotFoundException("User not found"));
+
+
+        //compare hashed password and user password input
+        if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
+            throw new InvalidCredentialsException("Invalid email or password");
+        }
+
+        //check user status
+        if(user.getStatus() == UserStatus.UNVERIFIED){
+            throw new AccountStatusException("Please verify your email before logging in");
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new AccountStatusException("Account is inactive");
+        }
+
+        //convert the user to MyUserDetails for JWT generation
+        MyUserDetails myUserDetails = new MyUserDetails(user);
+
+        //generate jwt token
+        String jwtToken = jwtUtils.generateJwtToken(myUserDetails);
+
+        return new LoginResponse("Login successful", jwtToken);
     }
 
 }

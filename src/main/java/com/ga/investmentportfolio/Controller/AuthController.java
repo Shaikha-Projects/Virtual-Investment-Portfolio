@@ -1,6 +1,8 @@
 package com.ga.investmentportfolio.Controller;
 
+import com.ga.investmentportfolio.DTO.Request.LoginRequest;
 import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
+import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Service.AuthService;
@@ -39,5 +41,15 @@ public class AuthController {
         return ResponseEntity.ok(new RegisterResponse("Email verified successfully"));
     }
 
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        LoginResponse response = authService.login(loginRequest);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/test")
+    public ResponseEntity<String> testAuthentication() {
+        return ResponseEntity.ok("JWT authentication works!");
+    }
 
 }

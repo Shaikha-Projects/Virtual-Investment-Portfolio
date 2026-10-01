@@ -51,4 +51,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.GONE).body(errorResponse); //constructs the HTTP response
     }
+
+    //when login with invalid credentials
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(InvalidCredentialsException exception){
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse); //constructs the HTTP response
+    }
+
+    //when user status does not allow login
+    @ExceptionHandler(AccountStatusException.class)
+    public ResponseEntity<ErrorResponse> handleAccountStatusException(AccountStatusException exception){
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse); //constructs the HTTP response
+    }
 }
