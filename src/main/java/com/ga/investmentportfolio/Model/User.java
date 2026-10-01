@@ -73,4 +73,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<EmailVerificationToken> emailVerificationTokens;
 
+    //one user may have more than one password rest token
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<PasswordResetToken> passwordResetTokens;
+
 }

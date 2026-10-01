@@ -1,8 +1,6 @@
 package com.ga.investmentportfolio.Controller;
 
-import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
-import com.ga.investmentportfolio.DTO.Request.LoginRequest;
-import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
+import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Model.User;
@@ -55,5 +53,19 @@ public class AuthController {
 
         authService.changePassword(request, emailAddress);
         return ResponseEntity.ok(new RegisterResponse("Password changed successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<RegisterResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request){
+
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(new RegisterResponse("Password reset email sent successfully"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<RegisterResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request){
+
+        authService.resetPassword(request);
+        return ResponseEntity.ok(new RegisterResponse("Password reset successfully"));
     }
 }
