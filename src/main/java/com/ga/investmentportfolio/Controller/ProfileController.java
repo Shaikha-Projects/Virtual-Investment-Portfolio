@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/profile")
@@ -34,6 +35,15 @@ public class ProfileController {
         String emailAddress = authentication.getName();
 
         return profileService.updateProfile(emailAddress, request);
+
+    }
+
+    @PutMapping("/picture")
+    public ProfileResponse updateProfilePicture(@RequestParam("picture") MultipartFile image, Authentication authentication){
+        // get authenticated user's email
+        String emailAddress = authentication.getName();
+
+        return profileService.updateProfilePicture(emailAddress, image);
 
     }
 }

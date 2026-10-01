@@ -67,4 +67,12 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse); //constructs the HTTP response
     }
+
+    //when user tries to upload invalid file
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException exception){
+        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse); //constructs the HTTP response
+    }
 }
