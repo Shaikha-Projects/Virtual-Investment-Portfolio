@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
 import com.ga.investmentportfolio.DTO.Request.LoginRequest;
 import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
@@ -114,6 +115,7 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request){
+        //get user email
         User user = userRepository.findByEmailAddress(request.getEmailAddress())
                 .orElseThrow(() -> new InformationNotFoundException("User not found"));
 
@@ -138,6 +140,24 @@ public class AuthService {
         String jwtToken = jwtUtils.generateJwtToken(myUserDetails);
 
         return new LoginResponse("Login successful", jwtToken);
+    }
+
+    public void changePassword(ChangePasswordRequest request, String emailAddress){
+        //get authenticated user email
+        User user = userRepository.findByEmailAddress(emailAddress)
+                .orElseThrow(() -> new InformationNotFoundException("User not found"));
+
+        //compare hashed password and user password input
+        if(!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())){
+            throw new InvalidCredentialsException("Current password is not correct");
+        }
+
+        //set new password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        //save user
+        userRepository.save(user);
+
     }
 
 }
