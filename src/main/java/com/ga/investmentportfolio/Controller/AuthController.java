@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Controller;
 
+import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
 import com.ga.investmentportfolio.DTO.Request.LoginRequest;
 import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
@@ -11,6 +12,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,9 +49,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/test")
-    public ResponseEntity<String> testAuthentication() {
-        return ResponseEntity.ok("JWT authentication works!");
-    }
+    @PostMapping("/change-password")
+    public ResponseEntity<RegisterResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request, Authentication authentication){
+        String emailAddress = authentication.getName();
 
+        authService.changePassword(request, emailAddress);
+        return ResponseEntity.ok(new RegisterResponse("Password changed successfully"));
+    }
 }
