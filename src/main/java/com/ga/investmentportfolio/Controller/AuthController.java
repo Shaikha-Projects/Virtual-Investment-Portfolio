@@ -47,5 +47,9 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/test")
+    public ResponseEntity<String> testAuthentication() {
+        return ResponseEntity.ok("JWT authentication works!");
+    }
 
 }
