@@ -35,4 +35,29 @@ public class EmailService {
         // Send the message using JavaMailSender
         javaMailSender.send(message);
     }
+
+    public void sendPasswordResetEmail(String emailAddress, String token){
+        //instantiate the SimpleMailMessage object
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        //populate email fields
+        message.setTo(emailAddress);
+        message.setSubject("Verify your email");
+
+        //construct url string
+        String resetURL = "http://localhost:8080/auth/reset-password?token=" + token;
+
+        //format email body
+        String emailBody = "Reset password request for Investment Portfolio! \n\n" +
+                "Use the link below to reset your password:\n" +
+                resetURL + "\n\n" +
+                "Link will expire in one hour." +
+                "If you did not request this, please ignore this email.";
+
+
+        message.setText(emailBody);
+
+        // Send the message using JavaMailSender
+        javaMailSender.send(message);
+    }
 }

@@ -22,11 +22,11 @@ public class RegisterRequest {
     @Pattern(regexp = "\\d{8}", message = "Phone number must be exactly 8 numbers") // \d = a digit (0-9), {8} numbers
     private String phoneNumber;
 
-    @NotBlank (message = "Email Address is required")
-    @Email(message = "Email Address must be valid")
+    @NotBlank (message = "Email address is required")
+    @Email(message = "Email address must be valid")
     private String emailAddress;
 
     @NotBlank (message = "Password is required")
-    @Size(min=8, message = "Password must be at leat 8 characters")
+    @Size(min=8, message = "Password must be at least 8 characters")
     private String password;
 }

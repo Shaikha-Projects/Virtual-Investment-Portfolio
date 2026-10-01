@@ -1,17 +1,17 @@
 package com.ga.investmentportfolio.Service;
 
-import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
-import com.ga.investmentportfolio.DTO.Request.LoginRequest;
-import com.ga.investmentportfolio.DTO.Request.RegisterRequest;
+import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Enums.UserStatus;
 import com.ga.investmentportfolio.Exception.*;
 import com.ga.investmentportfolio.Model.EmailVerificationToken;
+import com.ga.investmentportfolio.Model.PasswordResetToken;
 import com.ga.investmentportfolio.Model.Portfolio;
 import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Repository.EmailVerificationTokenRepository;
+import com.ga.investmentportfolio.Repository.PasswordResetTokenRepository;
 import com.ga.investmentportfolio.Repository.PortfolioRepository;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import com.ga.investmentportfolio.Security.JWTUtils;
@@ -35,6 +35,7 @@ public class AuthService {
     private final EmailService emailService;
     private final PortfolioRepository portfolioRepository;
     private final JWTUtils jwtUtils;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     public RegisterResponse register(RegisterRequest request){
         System.out.println("service calling register ==>");
@@ -85,7 +86,6 @@ public class AuthService {
 
     }
 
-    //method to verify email
     public void verifyEmail(String token) {
         EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
                 .orElseThrow(() -> new InformationNotFoundException("Verification token not found"));
@@ -157,6 +157,52 @@ public class AuthService {
 
         //save user
         userRepository.save(user);
+
+    }
+
+    public void forgotPassword(ForgotPasswordRequest request) {
+        //get user email
+        User user = userRepository.findByEmailAddress(request.getEmailAddress())
+                .orElseThrow(() -> new InformationNotFoundException("User not found"));
+
+        //generate reset token
+        String token = UUID.randomUUID().toString();
+
+        //create PasswordResetToken object
+        PasswordResetToken passwordResetToken = new PasswordResetToken();
+
+        passwordResetToken.setToken(token);
+        passwordResetToken.setUser(user); //connect it to user
+        passwordResetToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+
+        //save it using passwordResetTokenRepository
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        //send reset email
+        emailService.sendPasswordResetEmail(user.getEmailAddress(), token);
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        //find token
+        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new InformationNotFoundException("Verification token not found"));
+
+        //check expiration
+        if(passwordResetToken.getExpiresAt().isBefore(LocalDateTime.now())){
+            throw new TokenExpiredException("Reset Password token has expired");
+        }
+
+        //get associated user
+        User user = passwordResetToken.getUser();
+
+        //encode new password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        //save user
+        userRepository.save(user);
+
+        //Invalidate token
+        passwordResetTokenRepository.delete(passwordResetToken);
 
     }
 

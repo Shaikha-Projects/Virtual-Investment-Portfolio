@@ -39,6 +39,8 @@ public class SecurityConfiguration {
                                 "/auth/register",
                                 "/auth/verify",
                                 "/auth/login",
+                                "/auth/forgot-password",
+                                "/auth/reset-password",
                                 "/error"
                         ).permitAll() //public
                         .anyRequest().authenticated()); //everything else is authenticated
