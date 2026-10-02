@@ -35,4 +35,8 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     //check duplicate asset symbols
     boolean existsBySymbolIgnoreCase(String symbol);
+
+    //check symbol exist on an asset whose ID is not the asset we're currently updating
+    //symbol is the new symbol to be checked, id the current asset id
+    boolean existsBySymbolIgnoreCaseAndIdNot(String symbol, Long id);
 }
