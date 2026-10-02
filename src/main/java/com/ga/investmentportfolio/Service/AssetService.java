@@ -112,4 +112,11 @@ public class AssetService {
         return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
+
+    public List<AssetResponse> getAllAssets() {
+        List<Asset> assets = assetRepository.findAll();
+
+        return assets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
+                asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
+    }
 }
