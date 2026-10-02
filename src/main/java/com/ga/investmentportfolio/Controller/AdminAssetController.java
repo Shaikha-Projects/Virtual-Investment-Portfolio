@@ -1,6 +1,7 @@
 package com.ga.investmentportfolio.Controller;
 
 import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
+import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.Service.AssetService;
 import jakarta.validation.Valid;
@@ -21,5 +22,14 @@ public class AdminAssetController {
     public AssetResponse createAsset(@Valid @RequestBody CreateAssetRequest assetRequest){
         return assetService.createAsset(assetRequest);
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AssetResponse updateAsset(@PathVariable Long id,
+                                     @Valid @RequestBody UpdateAssetRequest assetRequest){
+        return assetService.updateAsset(id, assetRequest);
+    }
+
+
 
 }

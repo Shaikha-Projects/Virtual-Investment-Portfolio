@@ -1,10 +1,12 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
+import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
 import com.ga.investmentportfolio.Exception.InformationExistException;
+import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.Asset;
 import com.ga.investmentportfolio.Repository.AssetRepository;
 import lombok.RequiredArgsConstructor;
@@ -71,5 +73,28 @@ public class AssetService {
 
         return new AssetResponse(createdAsset.getSymbol(), createdAsset.getName(),
                 createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
+    }
+
+    public AssetResponse updateAsset(Long assetId, UpdateAssetRequest request){
+        //find asset by id
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+        //find if asset symbol already exist
+        if(assetRepository.existsBySymbolIgnoreCaseAndIdNot(request.getSymbol(), assetId)){
+            throw new InformationExistException("Asset symbol already exists");
+        }
+
+        //update existing asset
+        asset.setSymbol(request.getSymbol().trim().toUpperCase());
+        asset.setName(request.getName());
+        asset.setAssetType(request.getAssetType());
+        asset.setCurrentPrice(request.getCurrentPrice());
+
+        //save asset
+        Asset updatedAsset =  assetRepository.save(asset);
+
+        return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
+                updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 }
