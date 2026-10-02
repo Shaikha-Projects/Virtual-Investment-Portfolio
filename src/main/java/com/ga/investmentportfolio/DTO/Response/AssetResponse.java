@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.DTO.Response;
 
+import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,4 +14,5 @@ public class AssetResponse {
     private String name;
     private AssetType assetType;
     private BigDecimal currentPrice;
+    private AssetStatus assetStatus;
 }

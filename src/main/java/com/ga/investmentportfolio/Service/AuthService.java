@@ -82,8 +82,6 @@ public class AuthService {
 
         //return RegisterResponse
         return registerResponse;
-
-
     }
 
     public void verifyEmail(String token) {

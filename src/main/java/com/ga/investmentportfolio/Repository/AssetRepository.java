@@ -32,4 +32,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     //filter active assets belonging to a specific asset type
     List<Asset> findByAssetStatusAndAssetType(AssetStatus assetStatus, AssetType assetType);
+
+    //check duplicate asset symbols
+    boolean existsBySymbolIgnoreCase(String symbol);
 }

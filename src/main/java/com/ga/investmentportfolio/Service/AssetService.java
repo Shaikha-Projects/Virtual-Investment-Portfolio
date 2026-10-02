@@ -1,8 +1,10 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
+import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Model.Asset;
 import com.ga.investmentportfolio.Repository.AssetRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,7 @@ public class AssetService {
 
         //return activeAssets using AssetResponse stream/map
         return activeAssets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
-                asset.getAssetType(), asset.getCurrentPrice())).toList();
+                asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
     }
 
     public List<AssetResponse> searchAssets(String search, AssetType assetType){
@@ -45,8 +47,29 @@ public class AssetService {
         }
 
         return assets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
-                asset.getAssetType(), asset.getCurrentPrice())).toList();
+                asset.getAssetType(), asset.getCurrentPrice(),asset.getAssetStatus())).toList();
 
 
+    }
+
+    public AssetResponse createAsset(CreateAssetRequest request){
+        //if symbol already exists, throw existing
+        if(assetRepository.existsBySymbolIgnoreCase(request.getSymbol())){
+            throw new InformationExistException("Asset symbol already exists");
+        }
+
+        //create asset
+        Asset asset = new Asset();
+        asset.setSymbol(request.getSymbol().trim().toUpperCase());
+        asset.setName(request.getName());
+        asset.setAssetType(request.getAssetType());
+        asset.setCurrentPrice(request.getCurrentPrice());
+        asset.setAssetStatus(AssetStatus.ACTIVE);
+
+        //save asset
+        Asset createdAsset = assetRepository.save(asset);
+
+        return new AssetResponse(createdAsset.getSymbol(), createdAsset.getName(),
+                createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
     }
 }
