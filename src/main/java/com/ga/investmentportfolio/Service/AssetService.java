@@ -2,6 +2,7 @@ package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
+import com.ga.investmentportfolio.DTO.Request.UpdateAssetStatusRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
@@ -90,6 +91,20 @@ public class AssetService {
         asset.setName(request.getName());
         asset.setAssetType(request.getAssetType());
         asset.setCurrentPrice(request.getCurrentPrice());
+
+        //save asset
+        Asset updatedAsset =  assetRepository.save(asset);
+
+        return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
+                updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
+    }
+
+    public AssetResponse updateAssetStatus(Long assetId, UpdateAssetStatusRequest request) {
+        //find asset by id
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+        asset.setAssetStatus(request.getAssetStatus());
 
         //save asset
         Asset updatedAsset =  assetRepository.save(asset);
