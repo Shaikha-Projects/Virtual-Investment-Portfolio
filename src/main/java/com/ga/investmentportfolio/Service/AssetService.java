@@ -1,9 +1,6 @@
 package com.ga.investmentportfolio.Service;
 
-import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
-import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
-import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
-import com.ga.investmentportfolio.DTO.Request.UpdateAssetStatusRequest;
+import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
@@ -256,5 +253,79 @@ public class AssetService {
                     currentValue);
         }).toList();
     }
+
+    //sell asset for user
+    @Transactional
+    public TransactionResponse sellAsset(String email, SellAssetRequest request){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //find asset
+        Asset asset = assetRepository.findById(request.getAssetId())
+                .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+        //find the holding
+        Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, asset)
+                .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+
+        if(holding.getQuantity().compareTo(request.getQuantity()) < 0){
+            throw new BusinessRuleException("Insufficient quantity to sell");
+        }
+
+        //calculating the sale proceeds
+        BigDecimal proceeds = request.getQuantity().multiply(asset.getCurrentPrice());
+
+        //increase the cash balance
+        portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
+
+        //reduce the holding
+        BigDecimal remainingQuantity= holding.getQuantity().subtract(request.getQuantity());
+
+        if (remainingQuantity.compareTo(BigDecimal.ZERO) == 0) {
+            // if user sold all shares
+            holdingRepository.delete(holding);
+        } else {
+            // if user still owns some shares
+            holding.setQuantity(remainingQuantity);
+            holdingRepository.save(holding);
+        }
+
+        //update portfolio cash balance
+        portfolioRepository.save(portfolio);
+
+        //create SELL transaction
+        Transaction transaction = new Transaction();
+
+        //set transaction fields
+        transaction.setTransactionType(TransactionType.SELL);
+        transaction.setQuantity(request.getQuantity());
+        transaction.setPricePerUnit(asset.getCurrentPrice());
+        transaction.setTotalAmount(proceeds);
+        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
+        transaction.setPortfolio(portfolio);
+        transaction.setAsset(asset);
+
+        //save transaction
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        return new TransactionResponse(
+                savedTransaction.getId(),
+                savedTransaction.getTransactionType(),
+                savedTransaction.getAsset().getSymbol(),
+                savedTransaction.getQuantity(),
+                savedTransaction.getPricePerUnit(),
+                savedTransaction.getTotalAmount(),
+                savedTransaction.getTransactionStatus(),
+                savedTransaction.getCreatedAt(),
+                savedTransaction.getPortfolio().getCashBalance()
+        );
+
+    }
+
+
 
 }

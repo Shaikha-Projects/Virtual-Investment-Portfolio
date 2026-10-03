@@ -1,9 +1,11 @@
 package com.ga.investmentportfolio.Controller;
 
+import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateProfileRequest;
 import com.ga.investmentportfolio.DTO.Response.ProfileResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
+import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import com.ga.investmentportfolio.Service.ProfileService;
 import jakarta.validation.Valid;
@@ -46,4 +48,5 @@ public class ProfileController {
         return profileService.updateProfilePicture(emailAddress, image);
 
     }
+
 }

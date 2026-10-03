@@ -1,6 +1,7 @@
 package com.ga.investmentportfolio.Controller;
 
 import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
+import com.ga.investmentportfolio.DTO.Request.SellAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Service.AssetService;
@@ -31,6 +32,15 @@ public class PortfolioController {
     public List<HoldingResponse> getHoldings(Authentication authentication){
         String email = authentication.getName();
         return assetService.getHoldings(email);
+    }
+
+    @PostMapping("/sell")
+    public TransactionResponse sellAsset(@Valid @RequestBody SellAssetRequest request, Authentication authentication) {
+
+        // get authenticated user's email
+        String emailAddress = authentication.getName();
+
+        return assetService.sellAsset(emailAddress, request);
     }
 
 
