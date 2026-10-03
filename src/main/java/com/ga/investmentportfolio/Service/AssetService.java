@@ -5,6 +5,7 @@ import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetStatusRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
+import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
@@ -232,4 +233,28 @@ public class AssetService {
                 );
 
     }
+
+    //get holdings for user
+    public List<HoldingResponse> getHoldings(String email){
+        //get user
+        User user = userRepository.findByEmailAddress(email).orElseThrow(() ->
+                        new InformationNotFoundException("User does not exist"));
+
+        Portfolio portfolio = user.getPortfolio();
+
+        List<Holding> holdings = holdingRepository.findByPortfolio(portfolio);
+
+        return holdings.stream().map(holding -> {
+
+            //calculate current value
+            BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);;
+
+            //return new HoldingResponse
+            return new HoldingResponse(
+                    holding.getId(), holding.getAsset().getSymbol(), holding.getAsset().getName(),
+                    holding.getQuantity(), holding.getAverageBuyPrice(), holding.getAsset().getCurrentPrice(),
+                    currentValue);
+        }).toList();
+    }
+
 }
