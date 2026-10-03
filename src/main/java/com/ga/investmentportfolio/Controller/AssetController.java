@@ -19,9 +19,11 @@ import java.util.List;
 public class AssetController {
     private final AssetService assetService;
 
+
     @GetMapping
     public List<AssetResponse> viewAssets(@RequestParam(required = false) String search,
                                           @RequestParam(required = false) AssetType type){
         return assetService.searchAssets(search, type);
     }
+
 }

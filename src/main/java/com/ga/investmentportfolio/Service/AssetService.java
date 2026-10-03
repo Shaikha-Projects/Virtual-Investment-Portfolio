@@ -1,34 +1,49 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.CreateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetStatusRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
+import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
+import com.ga.investmentportfolio.Enums.TransactionStatus;
+import com.ga.investmentportfolio.Enums.TransactionType;
+import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
-import com.ga.investmentportfolio.Model.Asset;
-import com.ga.investmentportfolio.Repository.AssetRepository;
+import com.ga.investmentportfolio.Model.*;
+import com.ga.investmentportfolio.Repository.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AssetService {
     private final AssetRepository assetRepository;
+    private final UserRepository userRepository;
+    private final HoldingRepository holdingRepository;
+    private final TransactionRepository transactionRepository;
+    private final PortfolioRepository portfolioRepository;
 
+    //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
         //find active assets
-        List<Asset> activeAssets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
+            List<Asset> activeAssets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
 
         //return activeAssets using AssetResponse stream/map
         return activeAssets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
                 asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
     }
 
+    //search/filter assets
     public List<AssetResponse> searchAssets(String search, AssetType assetType){
         //store result
         List<Asset> assets;
@@ -55,6 +70,7 @@ public class AssetService {
 
     }
 
+    //create asset for admin
     public AssetResponse createAsset(CreateAssetRequest request){
         //if symbol already exists, throw existing
         if(assetRepository.existsBySymbolIgnoreCase(request.getSymbol())){
@@ -76,6 +92,7 @@ public class AssetService {
                 createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
     }
 
+    //update asset for admin
     public AssetResponse updateAsset(Long assetId, UpdateAssetRequest request){
         //find asset by id
         Asset asset = assetRepository.findById(assetId)
@@ -99,6 +116,7 @@ public class AssetService {
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 
+    //activate/deactivate asset for admin
     public AssetResponse updateAssetStatus(Long assetId, UpdateAssetStatusRequest request) {
         //find asset by id
         Asset asset = assetRepository.findById(assetId)
@@ -113,10 +131,105 @@ public class AssetService {
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 
+    //list all active and inactive assets for admin
     public List<AssetResponse> getAllAssets() {
         List<Asset> assets = assetRepository.findAll();
 
         return assets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
                 asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
+    }
+
+    //buy asset for user
+    @Transactional
+    public TransactionResponse buyAsset(String email, BuyAssetRequest request){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //find asset
+        Asset asset = assetRepository.findById(request.getAssetId())
+                .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+        //check asset status
+        if(asset.getAssetStatus() != AssetStatus.ACTIVE){
+            throw new BusinessRuleException("Asset is not available for purchase");
+        }
+
+        //calculate how much this purchase costs
+        BigDecimal totalCost = request.getQuantity().multiply(asset.getCurrentPrice());
+
+        //reject purchase when cashBalance < totalCost
+        if(portfolio.getCashBalance().compareTo(totalCost) < 0){
+            throw new BusinessRuleException("Insufficient funds");
+        }
+
+        //update cash balance
+        portfolio.setCashBalance(portfolio.getCashBalance().subtract(totalCost));
+        portfolioRepository.save(portfolio); //save portfolio
+
+        //check whether the holding already exists
+        //find existing holding
+        Optional<Holding> existingHolding = holdingRepository.findByPortfolioAndAsset(portfolio, asset);
+        if (existingHolding.isEmpty()) {
+            //create first holding
+            Holding holding = new Holding();
+            holding.setPortfolio(portfolio);
+            holding.setAsset(asset);
+            holding.setQuantity(request.getQuantity());
+            holding.setAverageBuyPrice(asset.getCurrentPrice());
+            holdingRepository.save(holding);
+        } else { //is holding already exists, update its fields
+            Holding holding = existingHolding.get();
+
+            //calculate the old and new invetment
+            BigDecimal oldInvestment = holding.getQuantity().multiply(holding.getAverageBuyPrice());
+            BigDecimal newInvestment = request.getQuantity().multiply(asset.getCurrentPrice());
+
+            //calculate total investment
+            BigDecimal sum = oldInvestment.add(newInvestment);
+            //calculate new quantity
+            BigDecimal newQuantity = holding.getQuantity().add(request.getQuantity());
+            //calculate weighted average
+            BigDecimal newAverageBuyPrice = sum.divide(newQuantity, 2 , RoundingMode.HALF_UP);
+
+            //update fields
+            holding.setQuantity(newQuantity);
+            holding.setAverageBuyPrice(newAverageBuyPrice);
+
+            //save holding
+            holdingRepository.save(holding);
+
+        }
+
+        //create BUY transaction
+        Transaction transaction = new Transaction();
+
+        //set transaction fields
+        transaction.setTransactionType(TransactionType.BUY);
+        transaction.setQuantity(request.getQuantity());
+        transaction.setPricePerUnit(asset.getCurrentPrice());
+        transaction.setTotalAmount(totalCost);
+        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
+        transaction.setPortfolio(portfolio);
+        transaction.setAsset(asset);
+
+        //save transaction
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        return new TransactionResponse(
+                savedTransaction.getId(),
+                savedTransaction.getTransactionType(),
+                savedTransaction.getAsset().getSymbol(),
+                savedTransaction.getQuantity(),
+                savedTransaction.getPricePerUnit(),
+                savedTransaction.getTotalAmount(),
+                savedTransaction.getTransactionStatus(),
+                savedTransaction.getCreatedAt(),
+                savedTransaction.getPortfolio().getCashBalance()
+                );
+
     }
 }
