@@ -3,7 +3,9 @@ package com.ga.investmentportfolio.Controller;
 import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.SellAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
+import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
+import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Service.AssetService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -41,6 +43,17 @@ public class PortfolioController {
         String emailAddress = authentication.getName();
 
         return assetService.sellAsset(emailAddress, request);
+    }
+
+    @GetMapping("transactions")
+    public List<TransactionHistoryResponse> getTransactionHistory(@RequestParam(required = false) TransactionType type,
+                                                                  @RequestParam(required = false) String symbol,
+                                                                  Authentication authentication) {
+        // get authenticated user's email
+        String emailAddress = authentication.getName();
+
+        return assetService.getTransactionHistory(emailAddress, type, symbol);
+
     }
 
 

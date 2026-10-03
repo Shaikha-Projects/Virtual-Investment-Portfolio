@@ -3,6 +3,7 @@ package com.ga.investmentportfolio.Service;
 import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
+import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
@@ -325,6 +326,43 @@ public class AssetService {
         );
 
     }
+
+    //get transaction
+    public List<TransactionHistoryResponse> getTransactionHistory(String email, TransactionType type, String symbol) {
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //create transactions list
+        List<Transaction> transactions;
+
+        if (type == null && symbol == null) {
+            //get all transactions
+            transactions = transactionRepository.findByPortfolioOrderByCreatedAtDesc(portfolio);
+        } else if (type != null && symbol == null) {
+            //get transaction filter by transaction type
+            transactions = transactionRepository.findByPortfolioAndTransactionTypeOrderByCreatedAtDesc(portfolio, type);
+        } else if(type == null && symbol != null){
+            //get transaction filter by asset symbol
+            transactions = transactionRepository.findByPortfolioAndAssetSymbolOrderByCreatedAtDesc(portfolio, symbol);
+        } else {
+            // get transaction filter by transaction type and asset symbol
+            transactions = transactionRepository.findByPortfolioAndTransactionTypeAndAssetSymbolOrderByCreatedAtDesc(portfolio, type, symbol);
+        }
+
+        //return transactions
+        return transactions.stream().map(transaction -> new TransactionHistoryResponse(
+                transaction.getId(), transaction.getTransactionType(),
+                transaction.getAsset().getSymbol(), transaction.getQuantity(),
+                transaction.getPricePerUnit(), transaction.getTotalAmount(),
+                transaction.getTransactionStatus(), transaction.getCreatedAt()
+        ) ).toList();
+
+    }
+
 
 
 
