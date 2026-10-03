@@ -1,16 +1,16 @@
 package com.ga.investmentportfolio.Controller;
 
 import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
+import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Service.AssetService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/portfolio")
@@ -26,4 +26,12 @@ public class PortfolioController {
         return assetService.buyAsset(email, request);
 
     }
+
+    @GetMapping("/holdings")
+    public List<HoldingResponse> getHoldings(Authentication authentication){
+        String email = authentication.getName();
+        return assetService.getHoldings(email);
+    }
+
+
 }
