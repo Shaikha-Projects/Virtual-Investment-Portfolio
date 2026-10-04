@@ -4,6 +4,7 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,7 +25,20 @@ public class OpenApiConfig  {
 
         SecurityRequirement securityRequirement = new SecurityRequirement().addList(securitySchemeName);
 
-        return new OpenAPI().components(components).addSecurityItem(securityRequirement);
+        //general information about the API
+        Info apiInfo = new Info()
+                .title("Virtual Investment Portfolio System API")
+                .version("1.0")
+                .description(
+                        "REST API for a virtual investment portfolio system. " +
+                                "Users can manage their profiles, browse assets, buy and sell " +
+                                "virtual investments, monitor holdings and portfolio performance, " +
+                                "view transaction history, and manage a watchlist. " +
+                                "Administrative endpoints allow authorized administrators to manage assets."
+                );
+
+        return new OpenAPI().info(apiInfo).components(components).addSecurityItem(securityRequirement);
+
 
     }
 }
