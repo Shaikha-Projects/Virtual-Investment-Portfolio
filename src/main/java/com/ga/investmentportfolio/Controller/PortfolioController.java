@@ -3,6 +3,7 @@ package com.ga.investmentportfolio.Controller;
 import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.SellAssetRequest;
 import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
+import com.ga.investmentportfolio.DTO.Response.PortfolioPerformanceResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
 import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
 import com.ga.investmentportfolio.Enums.TransactionType;
@@ -54,6 +55,14 @@ public class PortfolioController {
 
         return assetService.getTransactionHistory(emailAddress, type, symbol);
 
+    }
+
+    @GetMapping("/performance")
+    public PortfolioPerformanceResponse getPortfolioPerformance(Authentication authentication){
+        // get authenticated user's email
+        String emailAddress = authentication.getName();
+
+        return assetService.getPortfolioPerformance(emailAddress);
     }
 
 

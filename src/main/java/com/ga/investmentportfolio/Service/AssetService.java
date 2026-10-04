@@ -1,10 +1,7 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.*;
-import com.ga.investmentportfolio.DTO.Response.AssetResponse;
-import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
+import com.ga.investmentportfolio.DTO.Response.*;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
 import com.ga.investmentportfolio.Enums.TransactionStatus;
@@ -363,7 +360,47 @@ public class AssetService {
 
     }
 
+    //get portfolio performance
+    public PortfolioPerformanceResponse getPortfolioPerformance(String email) {
 
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //get user holdings
+        List<Holding> holdings = holdingRepository.findByPortfolio(portfolio);
+
+        //calculate holdingsValue
+        //start with zero, there might be many values
+        BigDecimal holdingsValue = BigDecimal.ZERO;
+
+        //calculate totalCostBasis
+        BigDecimal totalCostBasis = BigDecimal.ZERO;
+
+        for (Holding holding : holdings){
+            // calculate this holding's current value
+            BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice());
+            holdingsValue = holdingsValue.add(currentValue);
+
+            //cost basis
+            BigDecimal holdingCost = holding.getQuantity().multiply(holding.getAverageBuyPrice());
+            totalCostBasis = totalCostBasis.add(holdingCost);
+        }
+
+        //calculate unrealized gain loss
+        BigDecimal unrealizedGainLoss = holdingsValue.subtract(totalCostBasis);
+
+        //calculate totalPortfolio value
+        BigDecimal totalPortfolioValue = portfolio.getCashBalance().add(holdingsValue);
+
+        //return PortfolioPerformanceResponse
+        return new PortfolioPerformanceResponse(
+                portfolio.getCashBalance(), holdingsValue, totalPortfolioValue, totalCostBasis, unrealizedGainLoss
+        );
+    }
 
 
 }
