@@ -382,18 +382,22 @@ public class AssetService {
 
         for (Holding holding : holdings){
             // calculate this holding's current value
+            //multiplying the quantity of each asset by its current price
             BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice());
             holdingsValue = holdingsValue.add(currentValue);
 
             //cost basis
+            //multiplying the quantity of each asset by average buy price
             BigDecimal holdingCost = holding.getQuantity().multiply(holding.getAverageBuyPrice());
             totalCostBasis = totalCostBasis.add(holdingCost);
         }
 
         //calculate unrealized gain loss
+        //holdings value - the cost basis
         BigDecimal unrealizedGainLoss = holdingsValue.subtract(totalCostBasis);
 
         //calculate totalPortfolio value
+        //cash balance + the current holdings value
         BigDecimal totalPortfolioValue = portfolio.getCashBalance().add(holdingsValue);
 
         //return PortfolioPerformanceResponse
