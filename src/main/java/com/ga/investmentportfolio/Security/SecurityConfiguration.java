@@ -41,6 +41,8 @@ public class SecurityConfiguration {
                                 "/auth/login",
                                 "/auth/forgot-password",
                                 "/auth/reset-password",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
                                 "/error"
                         ).permitAll() //public
                         .anyRequest().authenticated()); //everything else is authenticated
