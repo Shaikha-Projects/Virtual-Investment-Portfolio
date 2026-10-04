@@ -1,6 +1,7 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Response.MessageResponse;
+import com.ga.investmentportfolio.DTO.Response.WatchlistResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationExistException;
@@ -13,6 +14,8 @@ import com.ga.investmentportfolio.Repository.UserRepository;
 import com.ga.investmentportfolio.Repository.WatchlistRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +53,22 @@ public class WatchlistService {
 
         //return successful message
         return new MessageResponse("Asset added to watchlist successfully");
+    }
+
+    //get all user asset
+    public List<WatchlistResponse> getWatchlist(String email){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user watchlist
+        List<Watchlist> watchlists = watchlistRepository.findByUser(user);
+
+        return watchlists.stream().map(watchlist -> new WatchlistResponse(
+                watchlist.getId(), watchlist.getAsset().getSymbol(),
+                watchlist.getAsset().getName(), watchlist.getAsset().getCurrentPrice(),
+                watchlist.getCreatedAt()
+        )).toList();
     }
 
 }
