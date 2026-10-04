@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface WatchlistRepository extends JpaRepository<Watchlist, Long> {
@@ -14,5 +15,8 @@ public interface WatchlistRepository extends JpaRepository<Watchlist, Long> {
     boolean existsByUserAndAsset(User user, Asset asset);
 
     List<Watchlist> findByUser(User user);
+
+    //find by watchlist record id and user
+    Optional<Watchlist> findByIdAndUser(Long id, User user);
 
 }

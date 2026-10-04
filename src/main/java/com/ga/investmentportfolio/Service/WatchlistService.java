@@ -71,4 +71,23 @@ public class WatchlistService {
         )).toList();
     }
 
+    //remove record(asset) from watchlist
+    public MessageResponse removeFromWatchlist(String email, Long watchlistId){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user watchlist
+        Watchlist watchlist = watchlistRepository.findByIdAndUser(watchlistId, user)
+                .orElseThrow(() -> new InformationNotFoundException("Watchlist entry does not exist"));
+
+        //remove
+        watchlistRepository.delete(watchlist);
+
+
+        //return removal message
+        return new MessageResponse("Asset removed from watchlist successfully");
+
+    }
+
 }

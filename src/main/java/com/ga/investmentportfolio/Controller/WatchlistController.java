@@ -33,4 +33,13 @@ public class WatchlistController {
         String emailAddress = authentication.getName();
         return watchlistService.getWatchlist(emailAddress);
     }
+
+    @DeleteMapping("/{id}")
+    public MessageResponse removeFromWatchlist(@PathVariable Long id,
+                                                       Authentication authentication){
+        // get authenticated user's email
+        String emailAddress = authentication.getName();
+        return watchlistService.removeFromWatchlist(emailAddress, id);
+    }
+
 }
