@@ -19,6 +19,8 @@ import com.ga.investmentportfolio.Security.MyUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,12 +38,13 @@ public class AuthService {
     private final PortfolioRepository portfolioRepository;
     private final JWTUtils jwtUtils;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class); //to write logs
 
     public RegisterResponse register(RegisterRequest request){
-        System.out.println("service calling register ==>");
-
         //if email already exists throw an exception
         if(userRepository.existsByEmailAddress(request.getEmailAddress())){
+            //add warn log
+            log.warn("Registration attempt with existing email: {}", request.getEmailAddress());
             throw new InformationExistException("user with email address " + request.getEmailAddress() + " already exists");
         }
 
@@ -76,6 +79,9 @@ public class AuthService {
 
         //send verification email
         emailService.sendVerificationEmail(userObject.getEmailAddress(), token);
+
+        //add info log for Successful registration
+        log.info("User registered successfully: {}", userObject.getEmailAddress());
 
         //create RegisterResponse
         RegisterResponse registerResponse = new RegisterResponse("Registration successful, Please verify your email using the link.");
@@ -120,14 +126,18 @@ public class AuthService {
 
         //compare hashed password and user password input
         if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
+            //add warn log then throw an exception
+            log.warn("Failed login attempt for email: {}", request.getEmailAddress());
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
         //check user status
         if(user.getStatus() == UserStatus.UNVERIFIED){
+            log.warn("Login blocked for unverified account: {}", user.getEmailAddress());
             throw new AccountStatusException("Please verify your email before logging in");
         }
         if (user.getStatus() == UserStatus.INACTIVE) {
+            log.warn("Login blocked for inactive account: {}", user.getEmailAddress());
             throw new AccountStatusException("Account is inactive");
         }
 
@@ -136,6 +146,9 @@ public class AuthService {
 
         //generate jwt token
         String jwtToken = jwtUtils.generateJwtToken(myUserDetails);
+
+        //info log for Successful login
+        log.info("User logged in successfully: {}", user.getEmailAddress());
 
         return new LoginResponse("Login successful", jwtToken);
     }

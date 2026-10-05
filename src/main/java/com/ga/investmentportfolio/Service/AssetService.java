@@ -22,6 +22,9 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @RequiredArgsConstructor
 public class AssetService {
@@ -30,6 +33,7 @@ public class AssetService {
     private final HoldingRepository holdingRepository;
     private final TransactionRepository transactionRepository;
     private final PortfolioRepository portfolioRepository;
+    private static final Logger log = LoggerFactory.getLogger(AssetService.class);
 
     //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
@@ -86,6 +90,10 @@ public class AssetService {
         //save asset
         Asset createdAsset = assetRepository.save(asset);
 
+        //add log info
+        log.info("Asset created - symbol: {}, name: {}, type: {}",
+                createdAsset.getSymbol(), createdAsset.getName(), createdAsset.getAssetType());
+
         return new AssetResponse(createdAsset.getSymbol(), createdAsset.getName(),
                 createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
     }
@@ -110,6 +118,10 @@ public class AssetService {
         //save asset
         Asset updatedAsset =  assetRepository.save(asset);
 
+        // add log info
+        log.info("Asset updated - id: {}, symbol: {}, price: {}",
+                updatedAsset.getId(), updatedAsset.getSymbol(), updatedAsset.getCurrentPrice());
+
         return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
@@ -124,6 +136,10 @@ public class AssetService {
 
         //save asset
         Asset updatedAsset =  assetRepository.save(asset);
+
+        // add log info
+        log.info("Asset status changed - id: {}, symbol: {}, status: {}",
+                updatedAsset.getId(), updatedAsset.getSymbol(), updatedAsset.getAssetStatus());
 
         return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
@@ -161,6 +177,8 @@ public class AssetService {
 
         //reject purchase when cashBalance < totalCost
         if(portfolio.getCashBalance().compareTo(totalCost) < 0){
+            //add warn log
+            log.warn("Purchase rejected due to insufficient funds for user: {}", email);
             throw new BusinessRuleException("Insufficient funds");
         }
 
@@ -214,8 +232,12 @@ public class AssetService {
         transaction.setPortfolio(portfolio);
         transaction.setAsset(asset);
 
-        //save transaction
+        //save transaction after successful buy
         Transaction savedTransaction = transactionRepository.save(transaction);
+
+        //add log info
+        log.info("BUY transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
+                email, asset.getSymbol(), request.getQuantity(), savedTransaction.getId());
 
         return new TransactionResponse(
                 savedTransaction.getId(),
@@ -273,6 +295,10 @@ public class AssetService {
                 .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
 
         if(holding.getQuantity().compareTo(request.getQuantity()) < 0){
+            //add warn log
+            log.warn("Sell rejected due to insufficient quantity - user: {}, asset: {}, requestedQuantity: {}",
+                    email, asset.getSymbol(), request.getQuantity());
+
             throw new BusinessRuleException("Insufficient quantity to sell");
         }
 
@@ -311,6 +337,10 @@ public class AssetService {
 
         //save transaction
         Transaction savedTransaction = transactionRepository.save(transaction);
+
+        //add info log after Successful sell
+        log.info("SELL transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
+                email, asset.getSymbol(), request.getQuantity(), savedTransaction.getId());
 
         return new TransactionResponse(
                 savedTransaction.getId(),
