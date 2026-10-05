@@ -37,18 +37,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
-            System.out.println("jwt: ==> " + jwt);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                System.out.println("username: ==> " + username);
 
                 UserDetails userDetails = this.myUserDetailsService.loadUserByUsername(username);
-                System.out.println("userDetails: ==> " + userDetails.getUsername());
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if(userDetails.isEnabled()){
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e);
