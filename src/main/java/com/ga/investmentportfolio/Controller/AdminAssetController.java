@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +39,9 @@ public class AdminAssetController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
-    public AssetResponse createAsset(@Valid @RequestBody CreateAssetRequest assetRequest){
-        return assetService.createAsset(assetRequest);
+    public AssetResponse createAsset(@Valid @RequestBody CreateAssetRequest assetRequest,
+                                     Authentication authentication){
+        return assetService.createAsset(authentication.getName(), assetRequest);
     }
 
     @Operation(
@@ -55,8 +57,9 @@ public class AdminAssetController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public AssetResponse updateAsset(@PathVariable Long id,
-                                     @Valid @RequestBody UpdateAssetRequest assetRequest){
-        return assetService.updateAsset(id, assetRequest);
+                                     @Valid @RequestBody UpdateAssetRequest assetRequest,
+                                     Authentication authentication){
+        return assetService.updateAsset(authentication.getName(), id, assetRequest);
     }
 
     @Operation(
@@ -71,8 +74,9 @@ public class AdminAssetController {
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public AssetResponse updateAssetStatus(@PathVariable Long id,
-                                     @Valid @RequestBody UpdateAssetStatusRequest assetRequest){
-        return assetService.updateAssetStatus(id, assetRequest);
+                                            @Valid @RequestBody UpdateAssetStatusRequest assetRequest,
+                                           Authentication authentication){
+        return assetService.updateAssetStatus(authentication.getName(),id, assetRequest);
     }
 
     @Operation(

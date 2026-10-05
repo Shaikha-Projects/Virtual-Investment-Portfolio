@@ -2,10 +2,7 @@ package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.*;
-import com.ga.investmentportfolio.Enums.AssetStatus;
-import com.ga.investmentportfolio.Enums.AssetType;
-import com.ga.investmentportfolio.Enums.TransactionStatus;
-import com.ga.investmentportfolio.Enums.TransactionType;
+import com.ga.investmentportfolio.Enums.*;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
@@ -34,6 +31,7 @@ public class AssetService {
     private final TransactionRepository transactionRepository;
     private final PortfolioRepository portfolioRepository;
     private static final Logger log = LoggerFactory.getLogger(AssetService.class);
+    private final AuditLogService auditLogService;
 
     //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
@@ -73,7 +71,7 @@ public class AssetService {
     }
 
     //create asset for admin
-    public AssetResponse createAsset(CreateAssetRequest request){
+    public AssetResponse createAsset(String email, CreateAssetRequest request){
         //if symbol already exists, throw existing
         if(assetRepository.existsBySymbolIgnoreCase(request.getSymbol())){
             throw new InformationExistException("Asset symbol already exists");
@@ -94,12 +92,15 @@ public class AssetService {
         log.info("Asset created - symbol: {}, name: {}, type: {}",
                 createdAsset.getSymbol(), createdAsset.getName(), createdAsset.getAssetType());
 
+        //save audit log
+        auditLogService.log(email, AuditAction.CREATE_ASSET, "Created asset " + createdAsset.getSymbol());
+
         return new AssetResponse(createdAsset.getSymbol(), createdAsset.getName(),
                 createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
     }
 
     //update asset for admin
-    public AssetResponse updateAsset(Long assetId, UpdateAssetRequest request){
+    public AssetResponse updateAsset(String email, Long assetId, UpdateAssetRequest request){
         //find asset by id
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
@@ -118,16 +119,19 @@ public class AssetService {
         //save asset
         Asset updatedAsset =  assetRepository.save(asset);
 
-        // add log info
+        //add log info
         log.info("Asset updated - id: {}, symbol: {}, price: {}",
                 updatedAsset.getId(), updatedAsset.getSymbol(), updatedAsset.getCurrentPrice());
+
+        //save audit log
+        auditLogService.log(email, AuditAction.UPDATE_ASSET, "Updated asset " + updatedAsset.getSymbol());
 
         return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 
     //activate/deactivate asset for admin
-    public AssetResponse updateAssetStatus(Long assetId, UpdateAssetStatusRequest request) {
+    public AssetResponse updateAssetStatus(String email, Long assetId, UpdateAssetStatusRequest request) {
         //find asset by id
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
@@ -140,6 +144,10 @@ public class AssetService {
         // add log info
         log.info("Asset status changed - id: {}, symbol: {}, status: {}",
                 updatedAsset.getId(), updatedAsset.getSymbol(), updatedAsset.getAssetStatus());
+
+        //save audit log
+        auditLogService.log(email, AuditAction.CHANGE_ASSET_STATUS, "Changed " + updatedAsset.getSymbol()
+                + " status to " + updatedAsset.getAssetStatus());
 
         return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
@@ -238,6 +246,9 @@ public class AssetService {
         //add log info
         log.info("BUY transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
                 email, asset.getSymbol(), request.getQuantity(), savedTransaction.getId());
+
+        //save audit log
+        auditLogService.log(email, AuditAction.BUY_ASSET, "Bought " + request.getQuantity() + " shares of " + asset.getSymbol());
 
         return new TransactionResponse(
                 savedTransaction.getId(),
@@ -341,6 +352,9 @@ public class AssetService {
         //add info log after Successful sell
         log.info("SELL transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
                 email, asset.getSymbol(), request.getQuantity(), savedTransaction.getId());
+
+        //save audit log
+        auditLogService.log(email, AuditAction.SELL_ASSET, "Sold " + request.getQuantity() + " shares of " + asset.getSymbol());
 
         return new TransactionResponse(
                 savedTransaction.getId(),
