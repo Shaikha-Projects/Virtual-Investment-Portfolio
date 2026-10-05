@@ -1,6 +1,7 @@
 package com.ga.investmentportfolio.Exception;
 
 import com.ga.investmentportfolio.DTO.Response.ErrorResponse;
+import com.ga.investmentportfolio.DTO.Response.MessageResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -82,6 +83,13 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = new ErrorResponse(exception.getMessage());
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    //when user tries login rate limit exceeded
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<MessageResponse> handleRateLimitExceeded(RateLimitExceededException ex) {
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new MessageResponse(ex.getMessage()));
     }
 
 }
