@@ -32,6 +32,7 @@ public class AssetService {
     private final PortfolioRepository portfolioRepository;
     private static final Logger log = LoggerFactory.getLogger(AssetService.class);
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
@@ -250,6 +251,9 @@ public class AssetService {
         //save audit log
         auditLogService.log(email, AuditAction.BUY_ASSET, "Bought " + request.getQuantity() + " shares of " + asset.getSymbol());
 
+        //send real-time notification
+        notificationService.sendNotification(email, "Purchase completed: " + request.getQuantity() + " shares of " + asset.getSymbol());
+
         return new TransactionResponse(
                 savedTransaction.getId(),
                 savedTransaction.getTransactionType(),
@@ -355,6 +359,9 @@ public class AssetService {
 
         //save audit log
         auditLogService.log(email, AuditAction.SELL_ASSET, "Sold " + request.getQuantity() + " shares of " + asset.getSymbol());
+
+        // send real-time notification
+        notificationService.sendNotification(email, "Sale completed: " + request.getQuantity() + " shares of " + asset.getSymbol());
 
         return new TransactionResponse(
                 savedTransaction.getId(),
