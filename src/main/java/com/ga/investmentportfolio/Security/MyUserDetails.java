@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Security;
 
+import com.ga.investmentportfolio.Enums.UserStatus;
 import com.ga.investmentportfolio.Model.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,5 +32,10 @@ public class MyUserDetails implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return user.getStatus() == UserStatus.ACTIVE;
     }
 }
