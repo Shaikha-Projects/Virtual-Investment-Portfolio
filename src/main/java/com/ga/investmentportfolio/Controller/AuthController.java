@@ -3,8 +3,10 @@ package com.ga.investmentportfolio.Controller;
 import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
+import com.ga.investmentportfolio.Exception.RateLimitExceededException;
 import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Service.AuthService;
+import com.ga.investmentportfolio.Service.RateLimitService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class AuthController {
 
     private AuthService authService;
+    private final RateLimitService rateLimitService;
 
     @Operation(summary = "Register a new user",
             description = "Creates a new user account and sends an email verification link.",
@@ -67,9 +70,13 @@ public class AuthController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Login successful"),
             @ApiResponse(responseCode = "401", description = "Invalid email or password"),
-            @ApiResponse(responseCode = "403", description = "Account is not eligible to log in")})
+            @ApiResponse(responseCode = "403", description = "Account is not eligible to log in"),
+            @ApiResponse(responseCode = "429", description = "Too many login attempts")})
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        if(!rateLimitService.allowRequest(loginRequest.getEmailAddress())){
+            throw new RateLimitExceededException("Too many login attempts. Please try again in one minute.");
+        }
         LoginResponse response = authService.login(loginRequest);
         return ResponseEntity.ok(response);
     }
