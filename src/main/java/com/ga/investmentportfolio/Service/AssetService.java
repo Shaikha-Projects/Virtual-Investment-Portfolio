@@ -13,6 +13,8 @@ import com.ga.investmentportfolio.Model.*;
 import com.ga.investmentportfolio.Repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -325,7 +327,7 @@ public class AssetService {
     }
 
     //get transaction
-    public List<TransactionHistoryResponse> getTransactionHistory(String email, TransactionType type, String symbol) {
+    public Page<TransactionHistoryResponse> getTransactionHistory(String email, TransactionType type, String symbol, Pageable pageable) {
         //find user by email
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
@@ -333,30 +335,30 @@ public class AssetService {
         //get user portfolio
         Portfolio portfolio = user.getPortfolio();
 
-        //create transactions list
-        List<Transaction> transactions;
+        //create transactions page
+        Page<Transaction> transactions;
 
         if (type == null && symbol == null) {
             //get all transactions
-            transactions = transactionRepository.findByPortfolioOrderByCreatedAtDesc(portfolio);
+            transactions = transactionRepository.findByPortfolio(portfolio, pageable);
         } else if (type != null && symbol == null) {
             //get transaction filter by transaction type
-            transactions = transactionRepository.findByPortfolioAndTransactionTypeOrderByCreatedAtDesc(portfolio, type);
+            transactions = transactionRepository.findByPortfolioAndTransactionType(portfolio, type, pageable);
         } else if(type == null && symbol != null){
             //get transaction filter by asset symbol
-            transactions = transactionRepository.findByPortfolioAndAssetSymbolOrderByCreatedAtDesc(portfolio, symbol);
+            transactions = transactionRepository.findByPortfolioAndAssetSymbol(portfolio, symbol, pageable);
         } else {
             // get transaction filter by transaction type and asset symbol
-            transactions = transactionRepository.findByPortfolioAndTransactionTypeAndAssetSymbolOrderByCreatedAtDesc(portfolio, type, symbol);
+            transactions = transactionRepository.findByPortfolioAndTransactionTypeAndAssetSymbol(portfolio, type, symbol, pageable);
         }
 
         //return transactions
-        return transactions.stream().map(transaction -> new TransactionHistoryResponse(
+        return transactions.map(transaction -> new TransactionHistoryResponse(
                 transaction.getId(), transaction.getTransactionType(),
                 transaction.getAsset().getSymbol(), transaction.getQuantity(),
                 transaction.getPricePerUnit(), transaction.getTotalAmount(),
                 transaction.getTransactionStatus(), transaction.getCreatedAt()
-        ) ).toList();
+        ) );
 
     }
 
