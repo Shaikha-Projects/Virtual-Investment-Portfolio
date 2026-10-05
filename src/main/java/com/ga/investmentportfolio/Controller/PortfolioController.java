@@ -12,6 +12,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +24,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 
 import java.util.List;
 
@@ -86,12 +91,16 @@ public class PortfolioController {
             @ApiResponse(responseCode = "401", description = "Authentication required"),
             @ApiResponse(responseCode = "404", description = "User or portfolio does not exist")})
     @GetMapping("/transactions")
-    public List<TransactionHistoryResponse> getTransactionHistory(@RequestParam(required = false) TransactionType type,
+    public Page<TransactionHistoryResponse> getTransactionHistory(@RequestParam(required = false) TransactionType type,
                                                                   @RequestParam(required = false) String symbol,
-                                                                  Authentication authentication) {
+                                                                  Authentication authentication,
+                                                                  @ParameterObject
+                                                                      @PageableDefault(
+                                                                          size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+                                                                      Pageable pageable) {
         // get authenticated user's email
         String emailAddress = authentication.getName();
-        return assetService.getTransactionHistory(emailAddress, type, symbol);
+        return assetService.getTransactionHistory(emailAddress, type, symbol, pageable);
     }
 
     @Operation(
