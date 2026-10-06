@@ -29,10 +29,9 @@ public class AdminUserControllerTest {
     private JWTUtils jwtUtils;
 
     @Test
-    @DisplayName("When normal user tries to deactivate user then access is forbidden")
+    @DisplayName("When normal user tries to change user status then access is forbidden")
     @WithMockUser(roles = "USER")
-    public void whenNormalUserTriesToDeactivateUserThenAccessIsForbidden() throws Exception {
+    public void whenNormalUserTriesToChangeUserStatusThenAccessIsForbidden() throws Exception {
 
-        mockMvc.perform(patch("/admin/users/1/deactivate")).andExpect(status().isForbidden());
-    }
+        mockMvc.perform(patch("/admin/users/1/status").param("status", "INACTIVE")).andExpect(status().isForbidden());    }
 }

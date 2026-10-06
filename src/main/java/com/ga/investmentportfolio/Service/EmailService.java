@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 @RequiredArgsConstructor
@@ -11,16 +12,20 @@ public class EmailService {
 
     private final JavaMailSender javaMailSender;
 
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
     public void sendVerificationEmail(String emailAddress, String token){
         //instantiate the SimpleMailMessage object
         SimpleMailMessage message = new SimpleMailMessage();
 
         //populate email fields
+        message.setFrom(fromEmail);
         message.setTo(emailAddress);
         message.setSubject("Verify your email");
 
         //construct url string
-        String verificationURL = "http://localhost:8080/auth/verify?token=" + token;
+        String verificationURL = "http://localhost:8081/auth/verify?token=" + token;
 
         //format email body
         String emailBody = "Thank you for registering in Investment Portfolio! \n\n" +
@@ -40,17 +45,18 @@ public class EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
 
         //populate email fields
+        message.setFrom(fromEmail);
         message.setTo(emailAddress);
-        message.setSubject("Verify your email");
+        message.setSubject("Reset your Investment Portfolio password");
 
         //construct url string
-        String resetURL = "http://localhost:8080/auth/reset-password?token=" + token;
+        String resetURL = "http://localhost:8081/auth/reset-password?token=" + token;
 
         //format email body
         String emailBody = "Reset password request for Investment Portfolio! \n\n" +
                 "Use the link below to reset your password:\n" +
                 resetURL + "\n\n" +
-                "Link will expire in one hour." +
+                "This link will expire in one hour.\n\n" +
                 "If you did not request this, please ignore this email.";
 
 

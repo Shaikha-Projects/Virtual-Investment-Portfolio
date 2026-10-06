@@ -43,7 +43,7 @@ public class AdminUserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         //deactivate user
-        adminUserService.deactivateUser("admin@test.com", 1L);
+        adminUserService.changeUserStatus("admin@test.com", 1L, UserStatus.INACTIVE);
 
         //verify status changed to inactive
         assertEquals(UserStatus.INACTIVE, user.getStatus());

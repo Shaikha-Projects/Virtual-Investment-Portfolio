@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.ga.investmentportfolio.Enums.UserStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/admin/users")
@@ -22,14 +24,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController {
     private final AdminUserService adminUserService;
 
-    @PatchMapping("/{id}/deactivate")
+    @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Deactivate a user account")
-    public ResponseEntity<MessageResponse> deactivateUser(@PathVariable Long id, Authentication authentication) {
+    @Operation(summary = "Change user account status")
+    public ResponseEntity<MessageResponse> deactivateUser(@PathVariable Long id,
+                                                          @RequestParam UserStatus status,
+                                                          Authentication authentication) {
 
-        adminUserService.deactivateUser(authentication.getName(), id);
+        adminUserService.changeUserStatus(authentication.getName(), id, status);
 
-        return ResponseEntity.ok(new MessageResponse("User deactivated successfully."));
+        return ResponseEntity.ok(new MessageResponse("User status changed to " + status + " successfully."));
     }
 
 }
