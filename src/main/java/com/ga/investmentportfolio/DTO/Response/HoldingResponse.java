@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class HoldingResponse {
     private Long holdingId;
+    private Long assetId;
     private String assetSymbol;
     private String assetName;
     private BigDecimal quantity;

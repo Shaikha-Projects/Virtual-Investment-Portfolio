@@ -50,7 +50,7 @@ public class EmailService {
         message.setSubject("Reset your Investment Portfolio password");
 
         //construct url string
-        String resetURL = "http://localhost:8081/auth/reset-password?token=" + token;
+        String resetURL = "http://localhost:5173/?token=" + token;
 
         //format email body
         String emailBody = "Reset password request for Investment Portfolio! \n\n" +

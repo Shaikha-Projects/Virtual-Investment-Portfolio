@@ -90,10 +90,14 @@ public class AuthController {
             security = {})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Password reset email sent successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid request")})
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "429", description = "Too many login attempts")})
     @PostMapping("/forgot-password")
     public ResponseEntity<RegisterResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request){
 
+        if (!rateLimitService.allowForgotPasswordRequest(request.getEmailAddress())) {
+            throw new RateLimitExceededException("Too many password reset attempts. Please try again in one minute.");
+        }
         authService.forgotPassword(request);
         return ResponseEntity.ok(new RegisterResponse("Password reset email sent successfully"));
     }

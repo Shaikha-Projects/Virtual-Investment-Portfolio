@@ -40,7 +40,7 @@ public class AssetService {
             List<Asset> activeAssets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
 
         //return activeAssets using AssetResponse stream/map
-        return activeAssets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
+        return activeAssets.stream().map(asset -> new  AssetResponse( asset.getId(),asset.getSymbol(), asset.getName(),
                 asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
     }
 
@@ -65,7 +65,7 @@ public class AssetService {
             assets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
         }
 
-        return assets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
+        return assets.stream().map(asset -> new  AssetResponse( asset.getId(),asset.getSymbol(), asset.getName(),
                 asset.getAssetType(), asset.getCurrentPrice(),asset.getAssetStatus())).toList();
 
 
@@ -96,7 +96,7 @@ public class AssetService {
         //save audit log
         auditLogService.log(email, AuditAction.CREATE_ASSET, "Created asset " + createdAsset.getSymbol());
 
-        return new AssetResponse(createdAsset.getSymbol(), createdAsset.getName(),
+        return new AssetResponse( createdAsset.getId(),createdAsset.getSymbol(), createdAsset.getName(),
                 createdAsset.getAssetType(), createdAsset.getCurrentPrice(), createdAsset.getAssetStatus());
     }
 
@@ -127,7 +127,7 @@ public class AssetService {
         //save audit log
         auditLogService.log(email, AuditAction.UPDATE_ASSET, "Updated asset " + updatedAsset.getSymbol());
 
-        return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
+        return new AssetResponse( updatedAsset.getId(),updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 
@@ -150,7 +150,7 @@ public class AssetService {
         auditLogService.log(email, AuditAction.CHANGE_ASSET_STATUS, "Changed " + updatedAsset.getSymbol()
                 + " status to " + updatedAsset.getAssetStatus());
 
-        return new AssetResponse(updatedAsset.getSymbol(), updatedAsset.getName(),
+        return new AssetResponse( updatedAsset.getId(),updatedAsset.getSymbol(), updatedAsset.getName(),
                 updatedAsset.getAssetType(), updatedAsset.getCurrentPrice(), updatedAsset.getAssetStatus());
     }
 
@@ -158,7 +158,7 @@ public class AssetService {
     public List<AssetResponse> getAllAssets() {
         List<Asset> assets = assetRepository.findAll();
 
-        return assets.stream().map(asset -> new  AssetResponse(asset.getSymbol(), asset.getName(),
+        return assets.stream().map(asset -> new  AssetResponse( asset.getId(),asset.getSymbol(), asset.getName(),
                 asset.getAssetType(), asset.getCurrentPrice(), asset.getAssetStatus())).toList();
     }
 
@@ -269,27 +269,28 @@ public class AssetService {
     }
 
     //get holdings for user
-    public List<HoldingResponse> getHoldings(String email){
-        //get user
-        User user = userRepository.findByEmailAddress(email).orElseThrow(() ->
-                        new InformationNotFoundException("User does not exist"));
+        public List<HoldingResponse> getHoldings(String email){
+            //get user
+            User user = userRepository.findByEmailAddress(email).orElseThrow(() ->
+                            new InformationNotFoundException("User does not exist"));
 
-        Portfolio portfolio = user.getPortfolio();
+            Portfolio portfolio = user.getPortfolio();
 
-        List<Holding> holdings = holdingRepository.findByPortfolio(portfolio);
+            List<Holding> holdings = holdingRepository.findByPortfolio(portfolio);
 
-        return holdings.stream().map(holding -> {
+            return holdings.stream().map(holding -> {
 
-            //calculate current value
-            BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
+                //calculate current value
+                BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
 
-            //return new HoldingResponse
-            return new HoldingResponse(
-                    holding.getId(), holding.getAsset().getSymbol(), holding.getAsset().getName(),
-                    holding.getQuantity(), holding.getAverageBuyPrice(), holding.getAsset().getCurrentPrice(),
-                    currentValue);
-        }).toList();
-    }
+                //return new HoldingResponse
+                return new HoldingResponse(
+                        holding.getId(), holding.getAsset().getId(),
+                        holding.getAsset().getSymbol(), holding.getAsset().getName(),
+                        holding.getQuantity(), holding.getAverageBuyPrice(), holding.getAsset().getCurrentPrice(),
+                        currentValue);
+            }).toList();
+        }
 
     //sell asset for user
     @Transactional
