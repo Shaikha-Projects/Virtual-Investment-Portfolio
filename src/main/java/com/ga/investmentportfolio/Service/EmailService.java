@@ -1,6 +1,5 @@
 package com.ga.investmentportfolio.Service;
 
-import com.ga.investmentportfolio.Repository.EmailVerificationTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;

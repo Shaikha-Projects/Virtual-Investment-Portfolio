@@ -1,7 +1,6 @@
 package com.ga.investmentportfolio.Security;
 
 import com.ga.investmentportfolio.Repository.UserRepository;
-import com.ga.investmentportfolio.Service.AuthService;
 import lombok.AllArgsConstructor;
 import com.ga.investmentportfolio.Model.User;
 import org.springframework.security.core.userdetails.UserDetails;

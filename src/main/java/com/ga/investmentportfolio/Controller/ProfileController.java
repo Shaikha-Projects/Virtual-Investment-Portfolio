@@ -1,13 +1,7 @@
 package com.ga.investmentportfolio.Controller;
 
-import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
-import com.ga.investmentportfolio.DTO.Request.ChangePasswordRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateProfileRequest;
 import com.ga.investmentportfolio.DTO.Response.ProfileResponse;
-import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
-import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import com.ga.investmentportfolio.Service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,12 +11,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/profile")

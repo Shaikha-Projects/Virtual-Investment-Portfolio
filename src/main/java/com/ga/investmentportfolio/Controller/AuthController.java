@@ -4,16 +4,13 @@ import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Exception.RateLimitExceededException;
-import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Service.AuthService;
 import com.ga.investmentportfolio.Service.RateLimitService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,13 +36,8 @@ public class AuthController {
             @ApiResponse(responseCode = "409", description = "Email address already exists")})
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest registerRequest){
-
-        System.out.println("controller calling register ==>");
-
         RegisterResponse response = authService.register(registerRequest);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
     }
 
     @Operation(summary = "Verify user email",
@@ -57,10 +49,7 @@ public class AuthController {
             @ApiResponse(responseCode = "410", description = "Verification token has expired")})
     @GetMapping("/verify")
     public ResponseEntity<RegisterResponse> verifyEmail(@RequestParam String token){
-        System.out.println("controller calling verifyEmail ==>");
-
         authService.verifyEmail(token);
-
         return ResponseEntity.ok(new RegisterResponse("Email verified successfully"));
     }
 

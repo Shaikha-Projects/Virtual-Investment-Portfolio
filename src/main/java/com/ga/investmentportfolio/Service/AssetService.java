@@ -281,7 +281,7 @@ public class AssetService {
         return holdings.stream().map(holding -> {
 
             //calculate current value
-            BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);;
+            BigDecimal currentValue = holding.getQuantity().multiply(holding.getAsset().getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
 
             //return new HoldingResponse
             return new HoldingResponse(

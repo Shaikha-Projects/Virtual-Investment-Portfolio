@@ -1,13 +1,9 @@
 package com.ga.investmentportfolio.Controller;
 
-import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
-import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.DTO.Response.MessageResponse;
 import com.ga.investmentportfolio.DTO.Response.WatchlistResponse;
 import com.ga.investmentportfolio.Service.WatchlistService;
-import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 

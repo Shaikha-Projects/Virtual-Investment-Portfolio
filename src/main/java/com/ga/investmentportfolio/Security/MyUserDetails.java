@@ -4,7 +4,6 @@ import com.ga.investmentportfolio.Enums.UserStatus;
 import com.ga.investmentportfolio.Model.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
