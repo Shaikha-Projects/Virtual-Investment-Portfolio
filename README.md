@@ -328,6 +328,11 @@ If more development time were available, the application could be extended with 
 
 ## Credits & External Resources
 
+### Acknowledgments
+
+Special thanks to **Zainab, Instructor Associate**, for her guidance, support, and feedback throughout the development of this project.
+
+
 The following official documentation and resources were used as references during the development of this project:
 
 - Spring Boot Documentation: https://docs.spring.io/spring-boot/
