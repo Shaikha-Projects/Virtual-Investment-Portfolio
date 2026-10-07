@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 
 function App() {
@@ -21,6 +21,8 @@ function App() {
   const [watchlistMessage, setWatchlistMessage] = useState('')
   const [transactionSymbol, setTransactionSymbol] = useState('')
   const [transactionType, setTransactionType] = useState('')
+  const [sortColumn, setSortColumn] = useState('')
+  const [sortDirection, setSortDirection] = useState('asc')
   const [profile, setProfile] = useState(null)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [editFirstName, setEditFirstName] = useState('')
@@ -29,7 +31,12 @@ function App() {
   const [profileMessage, setProfileMessage] = useState('')
   const [profilePictureFile, setProfilePictureFile] = useState(null)
   const [pictureMessage, setPictureMessage] = useState('')
-  const [authMode, setAuthMode] = useState('login')
+  const initialResetToken =
+      new URLSearchParams(window.location.search).get('token') || ''
+
+  const [authMode, setAuthMode] = useState(
+      initialResetToken ? 'reset' : 'login'
+  )
 
   const [registerFirstName, setRegisterFirstName] = useState('')
   const [registerLastName, setRegisterLastName] = useState('')
@@ -41,7 +48,7 @@ function App() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotMessage, setForgotMessage] = useState('')
 
-  const [resetToken, setResetToken] = useState('')
+  const [resetToken, setResetToken] = useState(initialResetToken)
   const [newPassword, setNewPassword] = useState('')
   const [resetMessage, setResetMessage] = useState('')
 
@@ -51,15 +58,6 @@ function App() {
   const [changePasswordMessage, setChangePasswordMessage] = useState('')
   const [changePasswordSuccess, setChangePasswordSuccess] = useState(false)
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
-
-    if (token) {
-      setResetToken(token)
-      setAuthMode('reset')
-    }
-  }, [])
 
   //login function
   const handleLogin = async () => {
@@ -110,9 +108,6 @@ function App() {
     if (response.ok) {
       setAssets(data)
       setActiveSection('assets')
-      console.log(data)
-    } else {
-      console.log(data)
     }
   }
 
@@ -133,9 +128,6 @@ function App() {
     if (response.ok) {
       setHoldings(data)
       setActiveSection('holdings')
-      console.log(data)
-    } else {
-      console.log(data)
     }
   }
 
@@ -174,9 +166,6 @@ function App() {
     if (response.ok) {
       setPerformance(data)
       setActiveSection('dashboard')
-      console.log(data)
-    } else {
-      console.log(data)
     }
   }
 
@@ -236,7 +225,6 @@ function App() {
         quantity: Number(sellQuantity)
       })
     })
-
     const data = await response.json()
 
     if (response.ok) {
@@ -244,15 +232,16 @@ function App() {
           `Successfully sold ${sellQuantity} share(s) of ${selectedHolding.assetSymbol}.`
       )
       setTimeout(() => {
-        setWatchlistMessage('')
+        setSellMessage('')
       }, 3000)
       setSelectedHolding(null)
       setSellQuantity('')
 
       //refresh holdings after selling
       await handleViewHoldings()
-    } else {
-      console.log(data)
+    }
+    else {
+      setSellMessage(data.message || 'Sell failed.')
     }
   }
 
@@ -271,6 +260,10 @@ function App() {
       url += `symbol=${transactionSymbol}&`
     }
 
+    if (sortColumn) {
+      url += `sort=${sortColumn},${sortDirection}&`
+    }
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -283,8 +276,54 @@ function App() {
     if (response.ok) {
       setTransactions(data.content)
       setActiveSection('transactions')
-    } else {
-      console.log(data)
+    }
+  }
+
+  //transaction sort
+  const handleTransactionSort = async (column) => {
+    let newColumn = column
+    let newDirection = 'asc'
+
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        newDirection = 'desc'
+      } else {
+        // Third click: reset sorting
+        newColumn = ''
+        newDirection = 'asc'
+      }
+    }
+
+    setSortColumn(newColumn)
+    setSortDirection(newDirection)
+
+    const token = localStorage.getItem('token')
+
+    let url = 'http://localhost:8081/portfolio/transactions?'
+
+    if (transactionType) {
+      url += `type=${transactionType}&`
+    }
+
+    if (transactionSymbol) {
+      url += `symbol=${transactionSymbol}&`
+    }
+
+    if (newColumn) {
+      url += `sort=${newColumn},${newDirection}&`
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setTransactions(data.content)
     }
   }
 
@@ -305,8 +344,6 @@ function App() {
     if (response.ok) {
       setWatchlist(data)
       setActiveSection('watchlist')
-    } else {
-      console.log(data)
     }
   }
 
@@ -325,13 +362,9 @@ function App() {
         }
     )
 
-    const data = await response.json()
-
     if (response.ok) {
       //refresh watchlist
       await handleViewWatchlist()
-    } else {
-      console.log(data)
     }
   }
 
@@ -389,8 +422,6 @@ function App() {
     if (response.ok) {
       setProfile(data)
       setActiveSection('profile')
-    } else {
-      console.log(data)
     }
   }
 
@@ -427,7 +458,7 @@ function App() {
       setIsEditingProfile(false)
       setProfileMessage('Profile updated successfully.')
       setTimeout(() => {
-        setPictureMessage('')
+        setProfileMessage('')
       }, 3000)
     } else {
       const errorMessage = Object.values(data).join(' ')
@@ -830,12 +861,6 @@ function App() {
 
                   {selectedAsset && (
                       <div className="buy-panel">
-                        ...
-                      </div>
-                  )}
-
-                  {selectedAsset && (
-                      <div className="buy-panel">
 
                         <div>
                           <h3>Buy {selectedAsset.symbol}</h3>
@@ -993,7 +1018,16 @@ function App() {
                               <tr>
                                 <th>Type</th>
                                 <th>Asset</th>
-                                <th>Quantity</th>
+
+                                <th
+                                    onClick={() => handleTransactionSort('quantity')}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                  Quantity {sortColumn === 'quantity'
+                                    ? (sortDirection === 'asc' ? '↑' : '↓')
+                                    : '↕'}
+                                </th>
+
                                 <th>Price Per Unit</th>
                                 <th>Total Amount</th>
                                 <th>Status</th>
@@ -1096,13 +1130,68 @@ function App() {
                         <table>
                           <thead>
                           <tr>
-                            <th>Type</th>
-                            <th>Asset</th>
-                            <th>Quantity</th>
-                            <th>Price Per Unit</th>
-                            <th>Total Amount</th>
-                            <th>Status</th>
-                            <th>Date</th>
+                            <th
+                                onClick={() => handleTransactionSort('transactionType')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Type {sortColumn === 'transactionType'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('asset.symbol')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Asset {sortColumn === 'asset.symbol'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('quantity')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Quantity {sortColumn === 'quantity'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('pricePerUnit')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Price Per Unit {sortColumn === 'pricePerUnit'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('totalAmount')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Total Amount {sortColumn === 'totalAmount'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('transactionStatus')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Status {sortColumn === 'transactionStatus'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
+
+                            <th
+                                onClick={() => handleTransactionSort('createdAt')}
+                                style={{ cursor: 'pointer' }}
+                            >
+                              Date {sortColumn === 'createdAt'
+                                ? (sortDirection === 'asc' ? '↑' : '↓')
+                                : '↕'}
+                            </th>
                           </tr>
                           </thead>
 

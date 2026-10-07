@@ -19,7 +19,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InformationExistException.class)
     public ResponseEntity<ErrorResponse> handleInformationExistException(InformationExistException exception) {
 
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+        HttpStatus status = HttpStatus.CONFLICT;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse); //constructs the HTTP response
     }
@@ -40,7 +46,13 @@ public class GlobalExceptionHandler {
     //when information not found
     @ExceptionHandler(InformationNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleInformationNotFoundException(InformationNotFoundException exception){
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+        HttpStatus status = HttpStatus.NOT_FOUND;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse); //constructs the HTTP response
     }
@@ -48,7 +60,13 @@ public class GlobalExceptionHandler {
     //when token has expired
     @ExceptionHandler(TokenExpiredException.class)
     public ResponseEntity<ErrorResponse> handleTokenExpiredException(TokenExpiredException exception){
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+        HttpStatus status = HttpStatus.GONE;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.GONE).body(errorResponse); //constructs the HTTP response
     }
@@ -56,7 +74,13 @@ public class GlobalExceptionHandler {
     //when login with invalid credentials
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(InvalidCredentialsException exception){
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+
+        ErrorResponse errorResponse = new ErrorResponse( LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse); //constructs the HTTP response
     }
@@ -64,7 +88,13 @@ public class GlobalExceptionHandler {
     //when user status does not allow login
     @ExceptionHandler(AccountStatusException.class)
     public ResponseEntity<ErrorResponse> handleAccountStatusException(AccountStatusException exception){
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+        HttpStatus status = HttpStatus.FORBIDDEN;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse); //constructs the HTTP response
     }
@@ -72,7 +102,13 @@ public class GlobalExceptionHandler {
     //when user tries to upload invalid file
     @ExceptionHandler(InvalidFileException.class)
     public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException exception){
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage()); //get error message from the exception
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse); //constructs the HTTP response
     }
@@ -80,7 +116,13 @@ public class GlobalExceptionHandler {
     //when a business rule is violated
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ErrorResponse> handleBusinessRuleException(BusinessRuleException exception) {
-        ErrorResponse errorResponse = new ErrorResponse(exception.getMessage());
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        );
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
