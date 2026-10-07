@@ -49,6 +49,10 @@ The purpose of this application is to provide a safe environment where users can
 - Mockito
 - Git and GitHub
 - Postman
+- React
+- Vite
+- JavaScript
+- HTML / CSS
 
 ## Architecture
 
@@ -265,6 +269,36 @@ http://localhost:8081/v3/api-docs
 
 For protected endpoints, use the **Authorize** button in Swagger UI and provide a valid JWT using the Bearer authentication scheme.
 
+### 10. Start the Frontend
+
+The frontend is built using React and Vite and provides the user interface for interacting with the Virtual Investment Portfolio System.
+
+Navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Install the required dependencies:
+
+```bash
+npm install
+```
+
+Start the frontend development server:
+
+```bash
+npm run dev
+```
+
+The frontend can then be accessed at:
+
+```text
+http://localhost:5173
+```
+
+Make sure the Spring Boot backend is also running on port `8081` so the frontend can communicate with the REST API.
+
 ## Unsolved Problems
 
 There are currently no known critical issues affecting the core functionality of the application.
@@ -286,9 +320,24 @@ If more development time were available, the application could be extended with 
 - Integration with a real-time market data API to provide live asset prices.
 - Additional asset types such as ETFs, cryptocurrencies, and bonds.
 - More detailed portfolio analytics, charts, and historical performance tracking.
-- A frontend web or mobile application connected to the REST API.
 - More advanced transaction status workflows for pending or scheduled investment orders.
 - Additional automated tests and integration tests to increase test coverage.
 - Deployment to a cloud platform with a production PostgreSQL database.
 - Enhanced real-time notifications for portfolio and asset price changes.
 - Additional administrative reporting and monitoring features.
+
+## Credits & External Resources
+
+The following official documentation and resources were used as references during the development of this project:
+
+- Spring Boot Documentation: https://docs.spring.io/spring-boot/
+- Spring Security Documentation: https://docs.spring.io/spring-security/reference/
+- Spring Data JPA Documentation: https://docs.spring.io/spring-data/jpa/reference/
+- React Documentation: https://react.dev/
+- Vite Documentation: https://vite.dev/
+- PostgreSQL Documentation: https://www.postgresql.org/docs/
+- Swagger / OpenAPI Documentation: https://swagger.io/docs/
+- JWT: https://jwt.io/
+- JUnit 5 Documentation: https://junit.org/junit5/docs/current/user-guide/
+
+The project was developed as part of the Java Developer Bootcamp. External documentation was used for learning, implementation guidance, and reference.
