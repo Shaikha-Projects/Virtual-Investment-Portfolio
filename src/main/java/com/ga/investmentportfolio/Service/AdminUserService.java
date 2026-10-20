@@ -22,6 +22,12 @@ public class AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new InformationNotFoundException("User not found with id: " + userId));
 
+        //prevent admin from deactivating his account
+        if (user.getEmailAddress().equalsIgnoreCase(adminEmail) && newStatus == UserStatus.INACTIVE) {
+            throw new BusinessRuleException("Admins cannot deactivate their own accounts.");
+        }
+
+
         //if user already has this status
         if (user.getStatus() == newStatus) {
             throw new BusinessRuleException("User is already " + newStatus.toString().toLowerCase() + ".");
