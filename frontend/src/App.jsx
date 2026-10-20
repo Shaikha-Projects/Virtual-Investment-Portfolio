@@ -1,15 +1,111 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
+// Remounting the application discards every field, cached response and selection.
 function App() {
+  const [session, setSession] = useState({ key: 0, message: '', performance: null })
+  const [checkingSession, setCheckingSession] = useState(() =>
+    Boolean(localStorage.getItem('token')) &&
+    !new URLSearchParams(window.location.search).has('token')
+  )
+  const generation = useRef(0)
+
+  const clearSession = useCallback((message = '') => {
+    generation.current += 1
+    localStorage.removeItem('token')
+    setCheckingSession(false)
+    setSession({ key: generation.current, message, performance: null })
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const token = localStorage.getItem('token')
+    // Password reset links must remain usable even with a stored session.
+    if (!token || new URLSearchParams(window.location.search).has('token')) {
+      return () => controller.abort()
+    }
+
+    async function restoreSession() {
+      try {
+        const response = await fetch('http://localhost:8081/portfolio/performance', {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        if (response.status === 401 || response.status === 403) {
+          clearSession('Your session has expired or your account is no longer authorized. Please log in again.')
+          return
+        }
+        if (!response.ok) throw new Error('Session validation failed')
+        const performance = await response.json()
+        if (controller.signal.aborted) return
+        setSession(previous => ({ ...previous, performance }))
+        setCheckingSession(false)
+      } catch {
+        if (!controller.signal.aborted) {
+          clearSession('We could not validate your session. Please check your connection and log in again.')
+        }
+      }
+    }
+    restoreSession()
+    return () => controller.abort()
+  }, [clearSession])
+
+  const sessionFetch = async (url, options = {}) => {
+    const requestGeneration = generation.current
+    const rejected = () => ({
+      ok: false,
+      json: async () => ({ message: 'Your session has ended. Please log in again.' }),
+    })
+    let response
+    try {
+      response = await fetch(url, options)
+    } catch (error) {
+      if (requestGeneration !== generation.current) return rejected()
+      throw error
+    }
+    if (requestGeneration !== generation.current) return rejected()
+    if (options.headers?.Authorization && (response.status === 401 || response.status === 403)) {
+      clearSession('Your session has expired or your account is no longer authorized. Please log in again.')
+      return rejected()
+    }
+    // A response body can finish after logout; never publish it into a new session.
+    return {
+      get ok() {
+        return requestGeneration === generation.current && response.ok
+      },
+      json: async () => {
+        try {
+          const data = await response.json()
+          return requestGeneration === generation.current ? data : {}
+        } catch (error) {
+          if (requestGeneration !== generation.current) return {}
+          throw error
+        }
+      },
+    }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="login-page">
+        <div className="login-card" role="status">Checking your session...</div>
+      </div>
+    )
+  }
+
+  return <PortfolioApp key={session.key} initialSession={session} clearSession={clearSession} sessionFetch={sessionFetch} />
+}
+
+function PortfolioApp({ initialSession, clearSession, sessionFetch }) {
   const [emailAddress, setEmailAddress] = useState('')
   const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [message, setMessage] = useState(initialSession.message)
+  const [isLoggedIn, setIsLoggedIn] = useState(Boolean(initialSession.performance))
   const [assets, setAssets] = useState([])
   const [holdings, setHoldings] = useState([])
-  const [activeSection, setActiveSection] = useState('')
-  const [performance, setPerformance] = useState(null)
+  const [activeSection, setActiveSection] = useState(initialSession.performance ? 'dashboard' : '')
+  const [performance, setPerformance] = useState(initialSession.performance)
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [buyQuantity, setBuyQuantity] = useState('')
   const [buyMessage, setBuyMessage] = useState('')
@@ -61,31 +157,34 @@ function App() {
 
   //login function
   const handleLogin = async () => {
+    try {
 
-    const response = await fetch('http://localhost:8081/auth/login', {
-      method: 'POST',
+      const response = await sessionFetch('http://localhost:8081/auth/login', {
+        method: 'POST',
 
-      headers: {
-        'Content-Type': 'application/json'
-      },
+        headers: {
+          'Content-Type': 'application/json'
+        },
 
-      body: JSON.stringify({
-        emailAddress: emailAddress,
-        password: password
+        body: JSON.stringify({
+          emailAddress: emailAddress,
+          password: password
+        })
       })
-    })
 
-    const data = await response.json()
+      const data = await response.json()
 
-    if (response.ok) {
-      localStorage.setItem('token', data.token)
-      setMessage(data.message)
-      setIsLoggedIn(true)
-      await loadDashboard(data.token)
-    } else {
-      setMessage(data.message)
+      if (response.ok) {
+        localStorage.setItem('token', data.token)
+        setPassword('')
+        await loadDashboard(data.token)
+      } else {
+        setMessage(data.message)
+      }
+
+    } catch {
+      clearSession('Unable to sign in or validate your session. Please check your connection and try again.')
     }
-
   }
 
   //view assets
@@ -96,7 +195,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/assets', {
+    const response = await sessionFetch('http://localhost:8081/assets', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -116,7 +215,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/portfolio/holdings', {
+    const response = await sessionFetch('http://localhost:8081/portfolio/holdings', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -134,7 +233,7 @@ function App() {
   //load dashboard after login
   const loadDashboard = async (token) => {
 
-    const response = await fetch('http://localhost:8081/portfolio/performance', {
+    const response = await sessionFetch('http://localhost:8081/portfolio/performance', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -146,6 +245,9 @@ function App() {
     if (response.ok) {
       setPerformance(data)
       setActiveSection('dashboard')
+      setIsLoggedIn(true)
+    } else if (localStorage.getItem('token') === token) {
+      clearSession('We could not validate your session. Please log in again.')
     }
   }
 
@@ -154,7 +256,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/portfolio/performance', {
+    const response = await sessionFetch('http://localhost:8081/portfolio/performance', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -174,7 +276,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/portfolio/buy', {
+    const response = await sessionFetch('http://localhost:8081/portfolio/buy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -202,11 +304,7 @@ function App() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    setIsLoggedIn(false)
-    setActiveSection('')
-    setPerformance(null)
-    setMessage('')
+    clearSession()
   }
 
   //sell asset
@@ -214,7 +312,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/portfolio/sell', {
+    const response = await sessionFetch('http://localhost:8081/portfolio/sell', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -264,7 +362,7 @@ function App() {
       url += `sort=${sortColumn},${sortDirection}&`
     }
 
-    const response = await fetch(url, {
+    const response = await sessionFetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -313,7 +411,7 @@ function App() {
       url += `sort=${newColumn},${newDirection}&`
     }
 
-    const response = await fetch(url, {
+    const response = await sessionFetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -332,7 +430,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/watchlist', {
+    const response = await sessionFetch('http://localhost:8081/watchlist', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -352,7 +450,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch(
+    const response = await sessionFetch(
         `http://localhost:8081/watchlist/${watchlistId}`,
         {
           method: 'DELETE',
@@ -375,7 +473,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch(
+    const response = await sessionFetch(
         `http://localhost:8081/watchlist/${asset.assetId}`,
         {
           method: 'POST',
@@ -410,7 +508,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/profile', {
+    const response = await sessionFetch('http://localhost:8081/profile', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -438,7 +536,7 @@ function App() {
     }
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/profile', {
+    const response = await sessionFetch('http://localhost:8081/profile', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -479,7 +577,7 @@ function App() {
     const formData = new FormData()
     formData.append('picture', profilePictureFile)
 
-    const response = await fetch('http://localhost:8081/profile/picture', {
+    const response = await sessionFetch('http://localhost:8081/profile/picture', {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -527,7 +625,7 @@ function App() {
       return
     }
 
-    const response = await fetch('http://localhost:8081/auth/register', {
+    const response = await sessionFetch('http://localhost:8081/auth/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -567,7 +665,7 @@ function App() {
       return
     }
 
-    const response = await fetch('http://localhost:8081/auth/forgot-password', {
+    const response = await sessionFetch('http://localhost:8081/auth/forgot-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -599,7 +697,7 @@ function App() {
       return
     }
 
-    const response = await fetch('http://localhost:8081/auth/reset-password', {
+    const response = await sessionFetch('http://localhost:8081/auth/reset-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -646,7 +744,7 @@ function App() {
 
     const token = localStorage.getItem('token')
 
-    const response = await fetch('http://localhost:8081/auth/change-password', {
+    const response = await sessionFetch('http://localhost:8081/auth/change-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
