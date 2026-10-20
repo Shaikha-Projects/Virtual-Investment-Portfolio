@@ -1,6 +1,9 @@
 package com.ga.investmentportfolio.Controller;
 
 import com.ga.investmentportfolio.DTO.Response.MessageResponse;
+import com.ga.investmentportfolio.DTO.Response.AdminUserResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.GetMapping;
 import com.ga.investmentportfolio.Service.AdminUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,6 +26,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "bearerAuth")
 public class AdminUserController {
     private final AdminUserService adminUserService;
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List users without sensitive account fields")
+    public Page<AdminUserResponse> listUsers(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        return adminUserService.listUsers(page, size);
+    }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
