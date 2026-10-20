@@ -8,6 +8,11 @@ import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.ga.investmentportfolio.DTO.Response.AdminUserResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -16,11 +21,26 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
+    @Transactional(readOnly = true)
+    public Page<AdminUserResponse> listUsers(int page, int size) {
+        var pageable = PageRequest.of(Math.max(0, page),
+                Math.max(1, Math.min(size, 100)), Sort.by("id"));
+        return userRepository.findAll(pageable).map(user ->
+                new AdminUserResponse(user.getId(), user.getFirstName(),
+                        user.getLastName(), user.getEmailAddress(), user.getRole(), user.getStatus()));
+    }
+
     public void changeUserStatus(String adminEmail, Long userId, UserStatus newStatus) {
 
         //find user
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new InformationNotFoundException("User not found with id: " + userId));
+
+        //prevent admin from deactivating his account
+        if (user.getEmailAddress().equalsIgnoreCase(adminEmail) && newStatus == UserStatus.INACTIVE) {
+            throw new BusinessRuleException("Admins cannot deactivate their own accounts.");
+        }
+
 
         //if user already has this status
         if (user.getStatus() == newStatus) {

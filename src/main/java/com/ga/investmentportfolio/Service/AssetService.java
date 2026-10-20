@@ -269,7 +269,7 @@ public class AssetService {
     }
 
     //get holdings for user
-        public List<HoldingResponse> getHoldings(String email){
+    public List<HoldingResponse> getHoldings(String email){
             //get user
             User user = userRepository.findByEmailAddress(email).orElseThrow(() ->
                             new InformationNotFoundException("User does not exist"));

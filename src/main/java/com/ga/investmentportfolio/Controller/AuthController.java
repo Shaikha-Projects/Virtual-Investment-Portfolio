@@ -3,6 +3,8 @@ package com.ga.investmentportfolio.Controller;
 import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
+import com.ga.investmentportfolio.DTO.Response.SessionResponse;
+import com.ga.investmentportfolio.Security.MyUserDetails;
 import com.ga.investmentportfolio.Exception.RateLimitExceededException;
 import com.ga.investmentportfolio.Service.AuthService;
 import com.ga.investmentportfolio.Service.RateLimitService;
@@ -26,6 +28,13 @@ public class AuthController {
 
     private AuthService authService;
     private final RateLimitService rateLimitService;
+
+    @GetMapping("/me")
+    @Operation(summary = "Get authenticated identity and current role")
+    public SessionResponse currentUser(Authentication authentication) {
+        var user = (MyUserDetails) authentication.getPrincipal();
+        return new SessionResponse(user.getUsername(), user.getUser().getRole());
+    }
 
     @Operation(summary = "Register a new user",
             description = "Creates a new user account and sends an email verification link.",
