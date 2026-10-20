@@ -35,6 +35,9 @@ public class Portfolio {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal reservedCash = BigDecimal.ZERO;
+
     //one user have one portfolio
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)

@@ -36,6 +36,9 @@ public class Holding {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false, precision = 15, scale = 4)
+    private BigDecimal reservedQuantity = BigDecimal.ZERO;
+
     //single portfolio can contain many holdings
     //many holding point to one portfolio
     @ManyToOne(fetch = FetchType.LAZY)
