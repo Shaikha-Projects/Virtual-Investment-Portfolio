@@ -1,13 +1,26 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.Enums.AssetStatus;
+import com.ga.investmentportfolio.Model.Asset;
+import com.ga.investmentportfolio.Model.PriceHistory;
+import com.ga.investmentportfolio.Repository.AssetRepository;
+import com.ga.investmentportfolio.Repository.PriceHistoryRepository;
+import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
+@RequiredArgsConstructor
 public class MarketSimulationService {
+    private final AssetRepository assetRepository;
+    private final PriceHistoryRepository priceHistoryRepository;
 
     //method to calculate random price changes
     public BigDecimal calculateNewPrice(BigDecimal currentPrice) {
@@ -31,6 +44,31 @@ public class MarketSimulationService {
 
         //return price
         return newPrice;
+
+    }
+
+
+    //scheduled method to automatically update asset prices every 10s
+    @Transactional
+    @Scheduled(fixedDelay = 10000)
+    public void updateMarketPrices() {
+        //retrieve active assets
+        List<Asset> assets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
+
+        //calculate each asset's new price
+        for (Asset asset : assets) {
+            BigDecimal newPrice = calculateNewPrice(asset.getCurrentPrice());
+            asset.setCurrentPrice(newPrice);
+
+            //save the prices
+            assetRepository.save(asset);
+
+            //save a PriceHistory record
+            PriceHistory history = new PriceHistory();
+            history.setAsset(asset);
+            history.setPrice(newPrice);
+            priceHistoryRepository.save(history);
+        }
 
     }
 
