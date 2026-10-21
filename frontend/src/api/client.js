@@ -7,6 +7,9 @@ const safeMessages = new Set([
   'Admins cannot deactivate their own accounts.', 'User is already active.', 'User is already inactive.',
   'Only image files are allowed', 'Profile picture cannot be empty', 'Image file must have a valid extension',
   'Email address has already been verified', 'Verification token has expired', 'Reset Password token has expired',
+  'Asset is not available for trading', 'Insufficient available cash for this order',
+  'You do not own this asset', 'Insufficient available shares for this order',
+  'You cannot cancel this order', 'Only pending orders can be cancelled', 'Insufficient reserved shares',
 ])
 const messages = {
   400: 'Please check your information and try again.', 401: 'Please log in again to continue.',
@@ -29,7 +32,7 @@ export function query(values) {
   return new URLSearchParams(Object.entries(values).filter(([, value]) => value !== '' && value != null)).toString()
 }
 export function createApi({ token = '', onInvalid = () => {}, signal: sessionSignal } = {}) {
-  return async function request(path, { body, signal, ...options } = {}) {
+  return async function request(path, { body, signal, responseType = 'json', ...options } = {}) {
     const headers = new Headers(options.headers)
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (body != null && !(body instanceof FormData)) headers.set('Content-Type', 'application/json')
@@ -53,6 +56,11 @@ export function createApi({ token = '', onInvalid = () => {}, signal: sessionSig
         } catch { /* Network failure does not prove the session is invalid. */ }
       }
       if (invalid && !combined.aborted) onInvalid()
+    }
+    if (response.ok && responseType === 'text') {
+      const text = await response.text()
+      if (combined.aborted) throw new DOMException('Cancelled', 'AbortError')
+      return text
     }
     let data = null
     try { data = await response.json() } catch {

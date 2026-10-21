@@ -7,7 +7,7 @@ test('admin workspace contains only administration pages and shared profile', ()
   assert.equal(workspace.home, 'admin')
   assert.deepEqual(workspace.navigation.map(([section]) => section), ['admin', 'admin-assets', 'admin-users', 'profile'])
   assert.equal(workspace.investmentNotifications, false)
-  for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'watchlist']) {
+  for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist']) {
     assert.equal(sectionFor('ADMIN', section), 'admin')
   }
   assert.equal(sectionFor('ADMIN', 'profile'), 'profile')
@@ -16,7 +16,7 @@ test('admin workspace contains only administration pages and shared profile', ()
 test('investor workspace contains no administration pages', () => {
   const workspace = workspaceFor('USER')
   assert.equal(workspace.home, 'dashboard')
-  assert.deepEqual(workspace.navigation.map(([section]) => section), ['dashboard', 'assets', 'holdings', 'transactions', 'watchlist', 'profile'])
+  assert.deepEqual(workspace.navigation.map(([section]) => section), ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist', 'profile'])
   assert.equal(workspace.investmentNotifications, true)
   for (const section of ['admin', 'admin-assets', 'admin-users']) assert.equal(sectionFor('USER', section), 'dashboard')
   assert.equal(sectionFor('USER', 'profile'), 'profile')

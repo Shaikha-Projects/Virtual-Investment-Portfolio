@@ -132,7 +132,7 @@ try {
   await login('ADMIN'); await header('Admin Dashboard')
   assert.deepEqual(await navigation(), ['Admin Dashboard', 'Asset Management', 'User Management', 'Profile'])
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), false)
-  for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'watchlist']) { await forceSection(section); await header('Admin Dashboard') }
+  for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist']) { await forceSection(section); await header('Admin Dashboard') }
   assert.equal((await apiCalls()).some(call => call.path.startsWith('/portfolio') || call.path === '/assets' || call.path === '/notifications/subscribe'), false)
   await click('Profile'); await wait(`document.body.innerText.includes('ADMIN Profile')`)
   await reload(); await header('Admin Dashboard')
@@ -147,7 +147,7 @@ try {
   await logout()
 
   await login('USER'); await header('Dashboard')
-  assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'Watchlist', 'Profile'])
+  assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Watchlist', 'Profile'])
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), true)
   await evaluate('window.__releaseProfile()')
   assert.equal(await evaluate(`document.body.innerText.includes('Previous account data')`), false)
@@ -184,7 +184,7 @@ try {
   await login('USER'); await header('Dashboard')
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
   await new Promise(resolve => setTimeout(resolve, 250))
-  await click('Menu'); assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'Watchlist', 'Profile'])
+  await click('Menu'); assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Watchlist', 'Profile'])
   await click('Profile'); await wait(`document.body.innerText.includes('USER Profile')`)
   assert.equal(await evaluate('document.documentElement.scrollWidth'), 375)
   assert.deepEqual(exceptions, [])

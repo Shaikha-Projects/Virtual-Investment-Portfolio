@@ -19,6 +19,7 @@ const workspaces = {
       ['assets', 'Assets', 'assets'],
       ['holdings', 'My Holdings', 'holdings'],
       ['transactions', 'Transactions', 'transactions'],
+      ['orders', 'My Orders', 'clock'],
       ['watchlist', 'Watchlist', 'watchlist'],
       profile,
     ],

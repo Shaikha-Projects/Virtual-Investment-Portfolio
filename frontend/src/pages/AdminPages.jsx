@@ -1,4 +1,5 @@
 import Icon from '../components/Icon'
+import ExecutePendingOrders from '../components/ExecutePendingOrders'
 import { money } from '../api/format'
 import { useAction } from '../hooks/useAction'
 import { useState } from 'react'
@@ -6,13 +7,14 @@ import { query } from '../api/client'
 import { useResource } from '../hooks/useResource'
 import { Field, Notice, Pager, Resource, Table } from '../components/UI'
 
-export function AdminDashboard({ api, revision, navigate }) {
+export function AdminDashboard({ api, revision, navigate, refresh, user }) {
   const assets = useResource(api, '/admin/assets', revision)
   const users = useResource(api, '/admin/users?size=1', revision)
   return <section className="admin-overview"><div className="page-heading"><div><span className="eyebrow">Administration workspace</span><h2>Platform overview<span className="heading-dot">.</span></h2><p className="muted">A clear view of your asset catalog and account access.</p></div><span className="badge admin-access"><Icon name="shield" size={15} />Administrator access</span></div>
     <article className="admin-hero card"><div className="icon-tile"><Icon name="shield" size={28} /></div><div><span className="eyebrow">Manage with confidence</span><h3>Your platform. In perspective.</h3><p className="muted">Keep investment opportunities current and account access in your control.</p></div></article>
     <div className="admin-kpis"><Resource resource={assets}><div className="summary-cards">{[['All assets', assets.data?.length, 'assets'], ['Active assets', assets.data?.filter(asset => asset.assetStatus === 'ACTIVE').length, 'check'], ['Inactive assets', assets.data?.filter(asset => asset.assetStatus === 'INACTIVE').length, 'clock']].map(([label, value, icon]) => <article className="summary-card kpi-card" key={label}><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={icon} size={18} /></span></div><h3>{value}</h3><p>Current asset catalog</p></article>)}</div></Resource><Resource resource={users}><article className="summary-card kpi-card"><div className="kpi-heading"><span>Registered users</span><span className="icon-tile"><Icon name="users" size={18} /></span></div><h3>{users.data?.totalElements}</h3><p>All registered accounts</p></article></Resource></div>
     <div className="analytics-grid admin-management"><article className="card"><div className="panel-heading"><span className="icon-tile"><Icon name="assets" /></span><span className="badge">Asset catalog</span></div><h3>Investment opportunities</h3><p className="muted">Create and maintain assets, update prices, and manage availability for investors.</p><button className="secondary" onClick={() => navigate('admin-assets')}>Manage assets <Icon name="arrow" size={17} /></button></article><article className="card"><div className="panel-heading"><span className="icon-tile"><Icon name="users" /></span><span className="badge">Account access</span></div><h3>Your investor community</h3><p className="muted">Review registered accounts and safely manage activation and deactivation.</p><button className="secondary" onClick={() => navigate('admin-users')}>Manage users <Icon name="arrow" size={17} /></button></article></div>
+    <ExecutePendingOrders api={api} refresh={refresh} role={user?.role} />
   </section>
 }
 
