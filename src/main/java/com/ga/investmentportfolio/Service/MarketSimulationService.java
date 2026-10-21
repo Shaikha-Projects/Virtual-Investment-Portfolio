@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.DTO.Response.PriceHistoryResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Model.Asset;
 import com.ga.investmentportfolio.Model.PriceHistory;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -69,6 +71,27 @@ public class MarketSimulationService {
             history.setPrice(newPrice);
             priceHistoryRepository.save(history);
         }
+
+    }
+
+    //method to retrieve price history for an asset
+    @Transactional
+    public List<PriceHistoryResponse> getPriceHistory(Long assetId) {
+        //retrieve asset's price history
+        List<PriceHistory> histories = priceHistoryRepository.findByAssetIdOrderByRecordedAtAsc(assetId);
+
+        //convert each record to response
+        List<PriceHistoryResponse> responses = new ArrayList<>();
+
+        for (PriceHistory history : histories) {
+            //create PriceHistoryResponse
+            PriceHistoryResponse response = new PriceHistoryResponse(history.getPrice(), history.getRecordedAt());
+
+            //add it to the list
+            responses.add(response);
+        }
+
+        return responses;
 
     }
 
