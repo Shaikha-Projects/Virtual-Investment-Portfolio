@@ -5,6 +5,7 @@ import com.ga.investmentportfolio.DTO.Request.UpdateAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.UpdateAssetStatusRequest;
 import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.Service.AssetService;
+import com.ga.investmentportfolio.Service.InvestmentOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +28,7 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 public class AdminAssetController {
     private final AssetService assetService;
+    private final InvestmentOrderService investmentOrderService;
 
     @Operation(
             summary = "Create asset",
@@ -90,6 +93,22 @@ public class AdminAssetController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<AssetResponse> viewAssets(){
         return assetService.getAllAssets();
+    }
+
+    @Operation(
+            summary = "Execute pending limit orders",
+            description = "Manually processes eligible BUY and SELL limit orders. ADMIN access is required.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Pending orders processed successfully"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "ADMIN access required")})
+    @PostMapping("/execute-pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> executePendingOrders() {
+
+        investmentOrderService.executePendingOrders();
+
+        return ResponseEntity.ok("Pending orders processed successfully");
     }
 
 

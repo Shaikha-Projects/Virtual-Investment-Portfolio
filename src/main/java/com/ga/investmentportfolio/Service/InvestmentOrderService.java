@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -203,9 +204,42 @@ public class InvestmentOrderService {
                 //update holdings
                 tradeExecutionService.updateHoldingAfterBuy(portfolio, order.getAsset(), order.getQuantity(), currentPrice);
 
+                //create BUY transaction
+                tradeExecutionService.createTransaction(portfolio, order.getAsset(), TransactionType.BUY, order.getQuantity(), currentPrice);
+
+                //update order status
+                order.setStatus(OrderStatus.FILLED);
+                order.setExecutedAt(LocalDateTime.now());
             }
             //SELL
             else if (order.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
+                //execute SELL limit orders
+                //get user portfolio and holding
+                Portfolio portfolio = order.getPortfolio();
+                Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, order.getAsset())
+                        .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+
+                //calculate sale proceeds
+                BigDecimal proceeds = order.getQuantity().multiply(currentPrice);
+
+                //release reserved shares
+                if (holding.getReservedQuantity().compareTo(order.getQuantity()) < 0) {
+                    throw new BusinessRuleException("Insufficient reserved shares");
+                }
+                holding.setReservedQuantity(holding.getReservedQuantity().subtract(order.getQuantity()));
+
+                //reduce the holding using the shared service
+                tradeExecutionService.updateHoldingAfterSell(portfolio, order.getAsset(), order.getQuantity());
+
+                //increase the portfolio cash balance
+                portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
+
+                //create SELL transaction
+                tradeExecutionService.createTransaction(portfolio, order.getAsset(), TransactionType.SELL, order.getQuantity(), currentPrice);
+
+                //update order status
+                order.setStatus(OrderStatus.FILLED);
+                order.setExecutedAt(LocalDateTime.now());
 
             }
         }

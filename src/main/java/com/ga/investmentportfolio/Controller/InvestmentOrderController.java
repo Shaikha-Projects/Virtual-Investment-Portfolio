@@ -33,7 +33,7 @@ public class InvestmentOrderController {
     }
 
     @GetMapping
-    @Operation(summary = "View all invetment orders")
+    @Operation(summary = "View all investment orders")
     public ResponseEntity<List<InvestmentOrderResponse>> viewOrders(Authentication authentication){
         String email = authentication.getName();
         List<InvestmentOrderResponse> orders = investmentOrderService.getMyOrders(email);
@@ -47,4 +47,6 @@ public class InvestmentOrderController {
         investmentOrderService.cancelOrder(email, id);
         return ResponseEntity.ok("Order is successfully cancelled");
     }
+
+
 }
