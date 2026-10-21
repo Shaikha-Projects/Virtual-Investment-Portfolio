@@ -1,6 +1,8 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.CreateOrderRequest;
+import com.ga.investmentportfolio.DTO.Response.AssetResponse;
+import com.ga.investmentportfolio.DTO.Response.InvestmentOrderResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
@@ -92,4 +94,24 @@ public class InvestmentOrderService {
 
     }
 
+    //method to get all investment orders
+    public List<InvestmentOrderResponse> getMyOrders(String email){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //get user's orders
+        List<InvestmentOrder> investmentOrders = investmentOrderRepository.findByPortfolioOrderByCreatedAtDesc(portfolio);
+
+        //return investmentOrders using InvestmentOrderResponse stream/map
+        return investmentOrders.stream().map(investmentOrder -> new InvestmentOrderResponse(investmentOrder.getId(),
+                        investmentOrder.getAsset().getId(), investmentOrder.getOrderType(),
+                        investmentOrder.getQuantity(), investmentOrder.getLimitPrice(),
+                        investmentOrder.getStatus(), investmentOrder.getCreatedAt(),
+                        investmentOrder.getExecutedAt())).toList();
+
+    }
 }
