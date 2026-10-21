@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Repository;
 
+import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Model.Holding;
 import com.ga.investmentportfolio.Model.InvestmentOrder;
 import com.ga.investmentportfolio.Model.Portfolio;
@@ -12,4 +13,7 @@ import java.util.List;
 public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder, Long> {
     //method to retrieve orders belonging to the investor's portfolio
     List<InvestmentOrder> findByPortfolioOrderByCreatedAtDesc(Portfolio portfolio);
+
+    //method to retrieve orders by their status
+    List<InvestmentOrder> findByStatus(OrderStatus status);
 }

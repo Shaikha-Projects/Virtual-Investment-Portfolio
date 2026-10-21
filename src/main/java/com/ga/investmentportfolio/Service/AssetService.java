@@ -33,6 +33,7 @@ public class AssetService {
     private static final Logger log = LoggerFactory.getLogger(AssetService.class);
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final TradeExecutionService tradeExecutionService;
 
     //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
@@ -188,7 +189,7 @@ public class AssetService {
         if(portfolio.getCashBalance().compareTo(totalCost) < 0){
             //add warn log
             log.warn("Purchase rejected due to insufficient funds for user: {}", email);
-            throw new BusinessRuleException("Insufficient funds");
+            throw new BusinessRuleException("Insufficient available funds");
         }
 
         //update cash balance
@@ -206,43 +207,13 @@ public class AssetService {
             holding.setQuantity(request.getQuantity());
             holding.setAverageBuyPrice(asset.getCurrentPrice());
             holdingRepository.save(holding);
-        } else { //is holding already exists, update its fields
-            Holding holding = existingHolding.get();
-
-            //calculate the old and new invetment
-            BigDecimal oldInvestment = holding.getQuantity().multiply(holding.getAverageBuyPrice());
-            BigDecimal newInvestment = request.getQuantity().multiply(asset.getCurrentPrice());
-
-            //calculate total investment
-            BigDecimal sum = oldInvestment.add(newInvestment);
-            //calculate new quantity
-            BigDecimal newQuantity = holding.getQuantity().add(request.getQuantity());
-            //calculate weighted average
-            BigDecimal newAverageBuyPrice = sum.divide(newQuantity, 2 , RoundingMode.HALF_UP);
-
-            //update fields
-            holding.setQuantity(newQuantity);
-            holding.setAverageBuyPrice(newAverageBuyPrice);
-
-            //save holding
-            holdingRepository.save(holding);
+        } else {
+            //is holding already exists, update its fields using updateHoldingAfterBuy
+            tradeExecutionService.updateHoldingAfterBuy(portfolio, asset, request.getQuantity(), asset.getCurrentPrice());
 
         }
-
         //create BUY transaction
-        Transaction transaction = new Transaction();
-
-        //set transaction fields
-        transaction.setTransactionType(TransactionType.BUY);
-        transaction.setQuantity(request.getQuantity());
-        transaction.setPricePerUnit(asset.getCurrentPrice());
-        transaction.setTotalAmount(totalCost);
-        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        transaction.setPortfolio(portfolio);
-        transaction.setAsset(asset);
-
-        //save transaction after successful buy
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.BUY, request.getQuantity(), asset.getCurrentPrice());
 
         //add log info
         log.info("BUY transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
@@ -310,13 +281,16 @@ public class AssetService {
         Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, asset)
                 .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
 
-        if(holding.getQuantity().compareTo(request.getQuantity()) < 0){
+
+        BigDecimal availableQuantity = holding.getQuantity().subtract(holding.getReservedQuantity());
+
+        if (availableQuantity.compareTo(request.getQuantity()) < 0) {
             //add warn log
             log.warn("Sell rejected due to insufficient quantity - user: {}, asset: {}, requestedQuantity: {}",
                     email, asset.getSymbol(), request.getQuantity());
-
-            throw new BusinessRuleException("Insufficient quantity to sell");
+            throw new BusinessRuleException("Insufficient available shares to sell");
         }
+
 
         //calculating the sale proceeds
         BigDecimal proceeds = request.getQuantity().multiply(asset.getCurrentPrice());
@@ -324,35 +298,14 @@ public class AssetService {
         //increase the cash balance
         portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
 
-        //reduce the holding
-        BigDecimal remainingQuantity= holding.getQuantity().subtract(request.getQuantity());
-
-        if (remainingQuantity.compareTo(BigDecimal.ZERO) == 0) {
-            // if user sold all shares
-            holdingRepository.delete(holding);
-        } else {
-            // if user still owns some shares
-            holding.setQuantity(remainingQuantity);
-            holdingRepository.save(holding);
-        }
+        //reduce the holding using shared service
+        tradeExecutionService.updateHoldingAfterSell(portfolio, asset, request.getQuantity());
 
         //update portfolio cash balance
         portfolioRepository.save(portfolio);
 
-        //create SELL transaction
-        Transaction transaction = new Transaction();
-
-        //set transaction fields
-        transaction.setTransactionType(TransactionType.SELL);
-        transaction.setQuantity(request.getQuantity());
-        transaction.setPricePerUnit(asset.getCurrentPrice());
-        transaction.setTotalAmount(proceeds);
-        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        transaction.setPortfolio(portfolio);
-        transaction.setAsset(asset);
-
-        //save transaction
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        //create SELL transaction using shared service
+        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.SELL, request.getQuantity(), asset.getCurrentPrice());
 
         //add info log after Successful sell
         log.info("SELL transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",

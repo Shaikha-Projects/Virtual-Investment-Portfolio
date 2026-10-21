@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class InvestmentOrderService {
     private final PortfolioRepository portfolioRepository;
     private final AssetRepository assetRepository;
     private final HoldingRepository holdingRepository;
+    private final TradeExecutionService tradeExecutionService;
 
     //method to place order limit
     @Transactional
@@ -171,5 +173,41 @@ public class InvestmentOrderService {
         order.setStatus(OrderStatus.CANCELLED);
         investmentOrderRepository.save(order);
 
+    }
+
+    //method to execute pending orders weather they are buy/sell
+    @Transactional
+    public void executePendingOrders() {
+        //retrieve all pending orders
+        List<InvestmentOrder> pendingOrders = investmentOrderRepository.findByStatus(OrderStatus.PENDING);
+
+        //to process each order
+        for(InvestmentOrder order : pendingOrders){
+            //get asset current price and order's limit price
+            BigDecimal currentPrice = order.getAsset().getCurrentPrice();
+            BigDecimal limitPrice = order.getLimitPrice();
+
+            //BUY
+            if(order.getOrderType() == TransactionType.BUY && currentPrice.compareTo(limitPrice) <= 0){
+                //execute BUY limit orders
+                //get user portfolio
+                Portfolio portfolio = order.getPortfolio();
+
+                BigDecimal actualCost = order.getQuantity().multiply(currentPrice);
+                BigDecimal reservedCash = order.getQuantity().multiply(limitPrice);
+
+                //update the portfolio's cashBalance and reservedCash
+                portfolio.setCashBalance(portfolio.getCashBalance().subtract(actualCost));
+                portfolio.setReservedCash(portfolio.getReservedCash().subtract(reservedCash));
+
+                //update holdings
+                tradeExecutionService.updateHoldingAfterBuy(portfolio, order.getAsset(), order.getQuantity(), currentPrice);
+
+            }
+            //SELL
+            else if (order.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
+
+            }
+        }
     }
 }
