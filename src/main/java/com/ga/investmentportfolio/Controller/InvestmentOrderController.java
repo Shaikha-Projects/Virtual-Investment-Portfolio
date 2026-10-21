@@ -33,9 +33,18 @@ public class InvestmentOrderController {
     }
 
     @GetMapping
+    @Operation(summary = "View all invetment orders")
     public ResponseEntity<List<InvestmentOrderResponse>> viewOrders(Authentication authentication){
         String email = authentication.getName();
         List<InvestmentOrderResponse> orders = investmentOrderService.getMyOrders(email);
         return ResponseEntity.ok(orders);
+    }
+
+    @PatchMapping("/{id}/cancel")
+    @Operation(summary = "Cancel a pending investment order")
+    public ResponseEntity<String> cancelOrder(@PathVariable Long id, Authentication authentication) {
+        String email = authentication.getName();
+        investmentOrderService.cancelOrder(email, id);
+        return ResponseEntity.ok("Order is successfully cancelled");
     }
 }

@@ -114,4 +114,62 @@ public class InvestmentOrderService {
                         investmentOrder.getExecutedAt())).toList();
 
     }
+
+    //method to cancel an order
+    @Transactional
+    public void cancelOrder(String email, Long orderId) {
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //find investment order
+        InvestmentOrder order = investmentOrderRepository.findById(orderId)
+                .orElseThrow(() -> new InformationNotFoundException("Investment order not found"));
+
+        //verify order belongs to the user
+        if (!order.getPortfolio().getId().equals(user.getPortfolio().getId())) {
+            throw new BusinessRuleException("You cannot cancel this order");
+        }
+
+        //check order status
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new BusinessRuleException("Only pending orders can be cancelled");
+        }
+
+        //BUY order
+        //release reserved cash(portfolio)
+        if(order.getOrderType() == TransactionType.BUY){
+            //get user portfolio
+            Portfolio portfolio = user.getPortfolio();
+
+            //calculates the reserved amount
+            BigDecimal requiredCash = order.getQuantity().multiply(order.getLimitPrice());
+
+            //update reservedCash
+            portfolio.setReservedCash(portfolio.getReservedCash().subtract(requiredCash));
+
+        }
+        //SELL order
+        //release reserved shares (holdings)
+        else if (order.getOrderType() == TransactionType.SELL) {
+                //get user portfolio
+                Portfolio portfolio = user.getPortfolio();
+
+                //find the holding
+                Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, order.getAsset())
+                        .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+
+                //get reserved quantity
+                BigDecimal reservedQuantity = order.getQuantity();
+
+                //update reserved quantity
+                holding.setReservedQuantity(holding.getReservedQuantity().subtract(reservedQuantity));
+        }
+
+
+        //change status to CANCELLED
+        order.setStatus(OrderStatus.CANCELLED);
+        investmentOrderRepository.save(order);
+
+    }
 }
