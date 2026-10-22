@@ -76,3 +76,38 @@ h1, h2, h3 { line-height: 1.25; color: var(--text); font-weight: 650; letter-spa
 .confirmation-dialog > .actions { margin-top: 22px; }
 .confirmation-dialog p { overflow-wrap: anywhere; }
 @media (max-width: 540px) { .order-fields { grid-template-columns: 1fr; }.orders-page > .page-heading { flex-direction: column; }.orders-page > .page-heading > .actions { width: 100%; }.orders-page > .page-heading > .actions > button { flex: 1; }.confirmation-dialog { padding: 22px; } }
+
+/* Live market and asset history stay scoped to the Assets workspace. */
+.market-live { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #235744; border-radius: 20px; padding: 8px 12px; font-size: 11px; white-space: nowrap; background: #102f2b; color: #6ee7b7; }
+.market-delayed { color: #fcd68b; background: #322c1e; border-color: #655333; }
+.market-delayed .live-dot { background: #fbbf24; }
+.price-movement { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; font-variant-numeric: tabular-nums; }
+.price-movement > span { font-size: 16px; }
+.movement-note { margin: 16px 0; font-size: 11px; }
+button.asset-details-link, button.asset-name-link { padding: 3px 0; background: transparent; justify-content: flex-start; text-align: left; min-height: 32px; color: #e2e8f0; font-size: 12px; }
+button.asset-name-link { color: #afc0d5; font-weight: 400; }
+button.asset-details-link:hover:not(:disabled), button.asset-name-link:hover:not(:disabled) { background: transparent; color: #6ee7b7; text-decoration: underline; text-underline-offset: 4px; }
+.market-page .actions { gap: 7px; }
+.back-to-market { margin: 0 0 20px; }
+.back-to-market .icon { transform: rotate(180deg); }
+.asset-details-summary h2:focus { outline: none; }
+.asset-details-summary h2 > span { font-size: 17px; margin-left: 9px; }
+.asset-details-price { display: flex; justify-content: space-between; align-items: center; gap: 22px; }
+.asset-details-price > div:first-child { display: grid; gap: 12px; }
+.asset-details-price strong { font-size: clamp(30px, 4vw, 42px); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.asset-history-panel { margin-top: 22px; }
+.price-history-chart { width: 100%; min-width: 0; position: relative; margin-top: 22px; border-radius: 8px; }
+.price-chart-svg { display: block; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+.price-chart-grid { stroke: #2b3b50; stroke-dasharray: 3 5; stroke-width: 1; }
+.price-chart-label { fill: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; }
+.price-chart-axis { fill: #8298b4; font-size: 10px; }
+.price-chart-line { fill: none; stroke: #10b981; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.price-chart-point { fill: #34d399; stroke: #101827; stroke-width: 2; }
+.price-chart-crosshair { stroke: #52728e; stroke-width: 1; stroke-dasharray: 4 4; }
+.price-chart-tooltip { position: absolute; top: 4px; width: 245px; max-width: 100%; pointer-events: none; display: grid; gap: 5px; padding: 11px 14px; border: 1px solid #3b536e; border-radius: 9px; background: #17263b; box-shadow: 0 8px 24px #00000030; font-size: 12px; }
+.price-chart-tooltip strong { color: #6ee7b7; font-variant-numeric: tabular-nums; }
+.price-chart-tooltip span, .price-chart-tooltip time { color: #b2c3d8; font-size: 11px; overflow-wrap: anywhere; }
+.price-chart-readout { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 42px; font-size: 11px; color: #94a3b8; margin: 5px 0; }
+.price-chart-readout strong { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.history-caption { margin: 14px 0 0; font-size: 10px; }
+@media (max-width: 540px) { .market-page > .page-heading { flex-wrap: wrap; }.asset-details-summary > .page-heading { flex-wrap: wrap; }.asset-details-price { align-items: flex-start; flex-direction: column; }.asset-details-price .actions { width: 100%; }.asset-history-panel .panel-heading { flex-wrap: wrap; gap: 10px; }.price-chart-label { font-size: 10px; }.price-chart-readout { font-size: 10px; } }

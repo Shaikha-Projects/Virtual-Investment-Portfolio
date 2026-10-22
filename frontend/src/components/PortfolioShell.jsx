@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Assets, Holdings, Transactions, Watchlist, GlobalNotice } from '../pages/InvestorPages'
+import { Holdings, Transactions, Watchlist, GlobalNotice } from '../pages/InvestorPages'
+import MarketPage from '../pages/MarketPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProfilePage from '../pages/ProfilePage'
 import OrdersPage from '../pages/OrdersPage'
@@ -57,7 +58,7 @@ export default function PortfolioShell({ session }) {
   const shared = { api: session.api, revision, refresh, navigate }
   const pages = admin
     ? { admin: AdminDashboard, 'admin-assets': AdminAssets, 'admin-users': AdminUsers, profile: ProfilePage }
-    : { dashboard: DashboardPage, assets: Assets, holdings: Holdings, transactions: Transactions, orders: OrdersPage, watchlist: Watchlist, profile: ProfilePage }
+    : { dashboard: DashboardPage, assets: MarketPage, holdings: Holdings, transactions: Transactions, orders: OrdersPage, watchlist: Watchlist, profile: ProfilePage }
   const Page = workspace ? pages[section] : null
   const currentLabel = workspace?.navigation.find(([value]) => value === section)?.[1]
   const links = entries => entries.map(([value, label, icon]) => (
