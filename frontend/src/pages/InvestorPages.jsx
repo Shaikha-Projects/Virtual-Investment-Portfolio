@@ -1,4 +1,4 @@
-import Icon from '../components/Icon'
+import TradeForm from '../components/TradeForm'
 import { positionGain } from '../api/analytics'
 import { date, money } from '../api/format'
 import { useAction } from '../hooks/useAction'
@@ -6,40 +6,6 @@ import { useState } from 'react'
 import { query } from '../api/client'
 import { useResource } from '../hooks/useResource'
 import { Alert, Field, Notice, Pager, Resource, Table } from '../components/UI'
-
-function TradeForm({ selected, mode, api, refresh, close }) {
-  const [quantity, setQuantity] = useState('')
-  const action = useAction()
-  const sell = mode === 'sell'
-  const submit = async event => {
-    event.preventDefault()
-    const amount = Number(quantity)
-    if (!Number.isFinite(amount) || amount < 0.01) { action.warn('Enter a quantity of at least 0.01.'); return }
-    if (sell && amount > Number(selected.quantity)) { action.warn('You cannot sell more than you own.'); return }
-    if (await action.run(() => api(`/portfolio/${mode}`, { method: 'POST', body: { assetId: selected.assetId, quantity: amount } }))) {
-      refresh(`${sell ? 'Sale' : 'Purchase'} completed successfully.`)
-      close()
-    }
-  }
-  return <form className="trade-panel" onSubmit={submit}><div className="trade-heading"><span className={`icon-tile ${sell ? 'negative' : ''}`}><Icon name={sell ? 'up' : 'down'} /></span><div><span className="eyebrow">{sell ? 'Close a position' : 'Place an investment'}</span><h3>{sell ? 'Sell' : 'Buy'} {selected.symbol || selected.assetSymbol}</h3></div><span className="badge">Virtual order</span></div><p>{sell ? `You own ${selected.quantity} units.` : `${money(selected.currentPrice)} per unit.`}</p><Notice action={action} /><Field label="Quantity" type="number" min="0.01" step="any" max={sell ? selected.quantity : undefined} required value={quantity} onChange={event => { setQuantity(event.target.value); action.clear() }} autoFocus /><p className="trade-estimate">Estimated total: {money(Number(quantity) * Number(selected.currentPrice))}</p><div className="actions"><button disabled={action.pending}>{action.pending ? 'Submitting…' : `Confirm ${sell ? 'sell' : 'buy'}`}</button><button type="button" className="secondary" disabled={action.pending} onClick={close}>Cancel</button></div></form>
-}
-
-export function Assets({ api, revision, refresh }) {
-  const [filters, setFilters] = useState({ search: '', type: '' })
-  const [assetSort, setAssetSort] = useState('symbol,asc')
-  const [selected, setSelected] = useState(null)
-  const resource = useResource(api, `/assets?${query(filters)}`, revision)
-  const watch = useAction()
-  const [sortKey, sortDirection] = assetSort.split(',')
-  const sortedAssets = [...(resource.data || [])].sort((a, b) => {
-    const result = sortKey === 'currentPrice' ? Number(a[sortKey]) - Number(b[sortKey]) : String(a[sortKey]).localeCompare(String(b[sortKey]))
-    return sortDirection === 'desc' ? -result : result
-  })
-  const submit = event => { event.preventDefault(); watch.clear(); setSelected(null); setFilters(Object.fromEntries(new FormData(event.currentTarget))) }
-  return <section className="card"><div className="page-heading"><div><span className="eyebrow">Investment workspace</span><h2>Available Assets</h2><p className="muted">Discover your next investment. Explore the available asset catalog.</p></div></div><form className="filters" onSubmit={submit}><Field label="Search assets" name="search" type="search" placeholder="Symbol or name" /><Field label="Asset type" name="type"><option value="">All types</option><option>STOCK</option><option>ETF</option><option>CRYPTO</option></Field><button>Search</button></form><Notice action={watch} />
-    {selected && <TradeForm key={selected.assetId} selected={selected} mode="buy" api={api} refresh={refresh} close={() => setSelected(null)} />}
-    <Resource resource={resource} empty={!resource.data?.length} emptyText="No active assets match your search."><Table label="Available assets"><thead><tr>{[['Symbol', 'symbol'], ['Name', 'name'], ['Type', 'assetType'], ['Price', 'currentPrice']].map(([label, key]) => <th scope="col" key={key} aria-sort={key === sortKey ? sortDirection === 'asc' ? 'ascending' : 'descending' : 'none'}><button className="sort-button" onClick={() => setAssetSort(`${key},${key === sortKey && sortDirection === 'asc' ? 'desc' : 'asc'}`)}>{label} {key === sortKey ? sortDirection === 'asc' ? '\u2191' : '\u2193' : '\u2195'}</button></th>)}<th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody>{sortedAssets.map(asset => <tr key={asset.assetId}><th scope="row">{asset.symbol}</th><td>{asset.name}</td><td>{asset.assetType}</td><td>{money(asset.currentPrice)}</td><td><span className="badge active">{asset.assetStatus}</span></td><td><div className="actions"><button onClick={() => { watch.clear(); setSelected(asset) }} aria-label={`Buy ${asset.symbol}`}>Buy</button><button className="secondary" disabled={watch.pending} onClick={() => watch.run(async () => { await api(`/watchlist/${asset.assetId}`, { method: 'POST' }); refresh() }, `${asset.symbol} added to your watchlist.`)}>+ Watchlist</button></div></td></tr>)}</tbody></Table></Resource></section>
-}
 
 export function Holdings({ api, revision, refresh }) {
   const resource = useResource(api, '/portfolio/holdings', revision)

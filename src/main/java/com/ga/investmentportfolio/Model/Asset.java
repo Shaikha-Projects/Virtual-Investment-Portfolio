@@ -15,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @Getter
 @Setter
-@ToString(exclude = {"holdings", "transactions", "watchlists"})
+@ToString(exclude = {"holdings", "transactions", "watchlists", "priceHistories"})
 @Entity
 @Table(name="assets")
 public class Asset {
@@ -60,5 +60,9 @@ public class Asset {
     //one asset can appear im many watchlists
     @OneToMany(mappedBy = "asset", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Watchlist> watchlists;
+
+    //one asset can have many price history records
+    @OneToMany(mappedBy = "asset", fetch = FetchType.LAZY)
+    private List<PriceHistory> priceHistories;
 
 }

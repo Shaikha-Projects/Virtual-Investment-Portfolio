@@ -8,6 +8,8 @@ import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.*;
 import com.ga.investmentportfolio.Repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,9 @@ public class AssetService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final TradeExecutionService tradeExecutionService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     //get all active asset for user
     public List<AssetResponse> getActiveAssets() {
@@ -170,8 +175,13 @@ public class AssetService {
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
 
-        //get user portfolio
-        Portfolio portfolio = user.getPortfolio();
+        //get user portfolio using locking method (portfolio locking)
+        Portfolio portfolio = portfolioRepository.findByIdForUpdate(user.getPortfolio().getId())
+                .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+        //refresh portfolio to get the latest database values
+        entityManager.refresh(portfolio);
+
 
         //find asset
         Asset asset = assetRepository.findById(request.getAssetId())
@@ -183,10 +193,10 @@ public class AssetService {
         }
 
         //calculate how much this purchase costs
-        BigDecimal totalCost = request.getQuantity().multiply(asset.getCurrentPrice());
+        BigDecimal totalCost = request.getQuantity().multiply(asset.getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
 
         //reject purchase when cashBalance < totalCost
-        if(portfolio.getCashBalance().compareTo(totalCost) < 0){
+        if(portfolio.getCashBalance().subtract(portfolio.getReservedCash()).compareTo(totalCost) < 0){
             //add warn log
             log.warn("Purchase rejected due to insufficient funds for user: {}", email);
             throw new BusinessRuleException("Insufficient available funds");
@@ -196,22 +206,9 @@ public class AssetService {
         portfolio.setCashBalance(portfolio.getCashBalance().subtract(totalCost));
         portfolioRepository.save(portfolio); //save portfolio
 
-        //check whether the holding already exists
-        //find existing holding
-        Optional<Holding> existingHolding = holdingRepository.findByPortfolioAndAsset(portfolio, asset);
-        if (existingHolding.isEmpty()) {
-            //create first holding
-            Holding holding = new Holding();
-            holding.setPortfolio(portfolio);
-            holding.setAsset(asset);
-            holding.setQuantity(request.getQuantity());
-            holding.setAverageBuyPrice(asset.getCurrentPrice());
-            holdingRepository.save(holding);
-        } else {
-            //is holding already exists, update its fields using updateHoldingAfterBuy
-            tradeExecutionService.updateHoldingAfterBuy(portfolio, asset, request.getQuantity(), asset.getCurrentPrice());
+        //update holding
+        tradeExecutionService.updateHoldingAfterBuy(portfolio, asset, request.getQuantity(), asset.getCurrentPrice());
 
-        }
         //create BUY transaction
         Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.BUY, request.getQuantity(), asset.getCurrentPrice());
 
@@ -234,8 +231,7 @@ public class AssetService {
                 savedTransaction.getTotalAmount(),
                 savedTransaction.getTransactionStatus(),
                 savedTransaction.getCreatedAt(),
-                savedTransaction.getPortfolio().getCashBalance()
-                );
+                savedTransaction.getPortfolio().getCashBalance());
 
     }
 
@@ -270,8 +266,12 @@ public class AssetService {
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
 
-        //get user portfolio
-        Portfolio portfolio = user.getPortfolio();
+        //get user portfolio using locking method (portfolio locking)
+        Portfolio portfolio = portfolioRepository.findByIdForUpdate(user.getPortfolio().getId())
+                .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+        //refresh portfolio to get the latest database values
+        entityManager.refresh(portfolio);
 
         //find asset
         Asset asset = assetRepository.findById(request.getAssetId())
@@ -293,7 +293,7 @@ public class AssetService {
 
 
         //calculating the sale proceeds
-        BigDecimal proceeds = request.getQuantity().multiply(asset.getCurrentPrice());
+        BigDecimal proceeds = request.getQuantity().multiply(asset.getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
 
         //increase the cash balance
         portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
@@ -326,8 +326,7 @@ public class AssetService {
                 savedTransaction.getTotalAmount(),
                 savedTransaction.getTransactionStatus(),
                 savedTransaction.getCreatedAt(),
-                savedTransaction.getPortfolio().getCashBalance()
-        );
+                savedTransaction.getPortfolio().getCashBalance());
 
     }
 

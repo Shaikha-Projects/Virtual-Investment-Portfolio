@@ -90,7 +90,7 @@ public class TradeExecutionService {
 
     //method to create transaction after buy/sell operation
     public Transaction createTransaction(Portfolio portfolio, Asset asset, TransactionType type, BigDecimal quantity, BigDecimal price) {
-        BigDecimal totalAmount = quantity.multiply(price);
+        BigDecimal totalAmount = quantity.multiply(price).setScale(2, RoundingMode.HALF_UP);
 
         Transaction transaction = new Transaction();
 
@@ -104,6 +104,5 @@ public class TradeExecutionService {
 
         return transactionRepository.save(transaction);
     }
-
 
 }

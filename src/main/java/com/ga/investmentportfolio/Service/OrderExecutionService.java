@@ -1,0 +1,124 @@
+package com.ga.investmentportfolio.Service;
+
+import com.ga.investmentportfolio.Enums.OrderStatus;
+import com.ga.investmentportfolio.Enums.TransactionType;
+import com.ga.investmentportfolio.Exception.BusinessRuleException;
+import com.ga.investmentportfolio.Exception.InformationNotFoundException;
+import com.ga.investmentportfolio.Model.Holding;
+import com.ga.investmentportfolio.Model.InvestmentOrder;
+import com.ga.investmentportfolio.Model.Portfolio;
+import com.ga.investmentportfolio.Repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+
+@Service
+@RequiredArgsConstructor
+public class OrderExecutionService {
+    private final InvestmentOrderRepository investmentOrderRepository;
+    private final PortfolioRepository portfolioRepository;
+    private final HoldingRepository holdingRepository;
+    private final TradeExecutionService tradeExecutionService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    //method to execute each order in its transaction
+    @Transactional
+    public void executeSingleOrder(Long orderId) {
+        //retrieve order
+        InvestmentOrder lockedOrder = investmentOrderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new InformationNotFoundException("Order not found"));
+
+        //check order status after locking
+        if (lockedOrder.getStatus() != OrderStatus.PENDING) {
+            return;
+        }
+
+        //get asset current price and order's limit price
+        BigDecimal currentPrice = lockedOrder.getAsset().getCurrentPrice();
+        BigDecimal limitPrice = lockedOrder.getLimitPrice();
+
+        //BUY
+        if(lockedOrder.getOrderType() == TransactionType.BUY && currentPrice.compareTo(limitPrice) <= 0){
+            //execute BUY limit orders
+            //get user portfolio using locking method (portfolio locking)
+            Portfolio portfolio = portfolioRepository.findByIdForUpdate(lockedOrder.getPortfolio().getId())
+                    .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+            //refresh portfolio to get the latest database values
+            entityManager.refresh(portfolio);
+
+            BigDecimal actualCost = lockedOrder.getQuantity().multiply(currentPrice).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal reservedCash = lockedOrder.getQuantity().multiply(limitPrice).setScale(2, RoundingMode.HALF_UP);
+
+            //check sufficient reserved cash before execution
+            if (portfolio.getReservedCash().compareTo(reservedCash) < 0) {
+                throw new BusinessRuleException("Insufficient reserved cash");
+            }
+
+            //check sufficient cash balance before execution
+            if (portfolio.getCashBalance().compareTo(actualCost) < 0) {
+                throw new BusinessRuleException("Insufficient cash balance");
+            }
+
+            //update the portfolio's cashBalance and reservedCash
+            portfolio.setCashBalance(portfolio.getCashBalance().subtract(actualCost));
+            portfolio.setReservedCash(portfolio.getReservedCash().subtract(reservedCash));
+
+            //update holdings
+            tradeExecutionService.updateHoldingAfterBuy(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity(), currentPrice);
+
+            //create BUY transaction
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.BUY, lockedOrder.getQuantity(), currentPrice);
+
+            //update order status
+            lockedOrder.setStatus(OrderStatus.FILLED);
+            lockedOrder.setExecutedAt(LocalDateTime.now());
+        }
+        //SELL
+        else if (lockedOrder.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
+            //execute SELL limit orders
+            //get user portfolio using locking method (portfolio locking)
+            Portfolio portfolio = portfolioRepository.findByIdForUpdate(lockedOrder.getPortfolio().getId())
+                    .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+            //refresh portfolio to get the latest database values
+            entityManager.refresh(portfolio);
+
+            //get user holding
+            Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, lockedOrder.getAsset())
+                    .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+
+            //calculate sale proceeds
+            BigDecimal proceeds = lockedOrder.getQuantity().multiply(currentPrice).setScale(2, RoundingMode.HALF_UP);
+
+            //release reserved shares
+            if (holding.getReservedQuantity().compareTo(lockedOrder.getQuantity()) < 0) {
+                throw new BusinessRuleException("Insufficient reserved shares");
+            }
+            holding.setReservedQuantity(holding.getReservedQuantity().subtract(lockedOrder.getQuantity()));
+
+            //reduce the holding using the shared service
+            tradeExecutionService.updateHoldingAfterSell(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity());
+
+            //increase the portfolio cash balance
+            portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
+
+            //create SELL transaction
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.SELL, lockedOrder.getQuantity(), currentPrice);
+
+            //update order status
+            lockedOrder.setStatus(OrderStatus.FILLED);
+            lockedOrder.setExecutedAt(LocalDateTime.now());
+
+        }
+    }
+
+}

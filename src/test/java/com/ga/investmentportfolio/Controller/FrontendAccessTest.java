@@ -29,6 +29,7 @@ class FrontendAccessTest {
     @Autowired MockMvc mvc;
     @MockitoBean AdminUserService adminUsers;
     @MockitoBean AssetService assets;
+    @MockitoBean InvestmentOrderService investmentOrders;
     @MockitoBean AuthService auth;
     @MockitoBean RateLimitService rateLimits;
     @MockitoBean MyUserDetailsService users;
