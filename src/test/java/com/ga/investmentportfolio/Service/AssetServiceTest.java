@@ -9,9 +9,11 @@ import com.ga.investmentportfolio.Model.Holding;
 import com.ga.investmentportfolio.Model.Portfolio;
 import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Repository.*;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
@@ -47,7 +49,9 @@ public class AssetServiceTest {
 
         assetService = new AssetService(
                 assetRepository, userRepository, holdingRepository,
-                transactionRepository, portfolioRepository, auditLogService, notificationService);
+                transactionRepository, portfolioRepository, auditLogService, notificationService,
+                new TradeExecutionService(holdingRepository, transactionRepository));
+        ReflectionTestUtils.setField(assetService, "entityManager", mock(EntityManager.class));
     }
 
     //test 1: insufficient cash → BUY rejected
@@ -78,7 +82,7 @@ public class AssetServiceTest {
 
         when(userRepository.findByEmailAddress(email)).thenReturn(Optional.of(user));
 
-        when(portfolioRepository.findById(user.getId())).thenReturn(Optional.of(portfolio));
+        when(portfolioRepository.findByIdForUpdate(portfolio.getId())).thenReturn(Optional.of(portfolio));
 
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
 
@@ -119,6 +123,7 @@ public class AssetServiceTest {
 
         //mock repository responses
         when(userRepository.findByEmailAddress(email)).thenReturn(Optional.of(user));
+        when(portfolioRepository.findByIdForUpdate(portfolio.getId())).thenReturn(Optional.of(portfolio));
 
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
 

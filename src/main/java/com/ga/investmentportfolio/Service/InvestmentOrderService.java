@@ -10,11 +10,17 @@ import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.*;
 import com.ga.investmentportfolio.Repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +34,11 @@ public class InvestmentOrderService {
     private final AssetRepository assetRepository;
     private final HoldingRepository holdingRepository;
     private final TradeExecutionService tradeExecutionService;
+    private final OrderExecutionService orderExecutionService;
+    private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     //method to place order limit
     @Transactional
@@ -36,8 +47,12 @@ public class InvestmentOrderService {
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
 
-        //get user portfolio
-        Portfolio portfolio = user.getPortfolio();
+        //get user portfolio using locking method (portfolio locking)
+        Portfolio portfolio = portfolioRepository.findByIdForUpdate(user.getPortfolio().getId())
+                .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+        //refresh portfolio to get the latest database values
+        entityManager.refresh(portfolio);
 
         //find asset
         Asset asset = assetRepository.findById(request.getAssetId())
@@ -51,7 +66,7 @@ public class InvestmentOrderService {
         //BUY reservations
         if (request.getOrderType() == TransactionType.BUY) {
             BigDecimal availableCash = portfolio.getCashBalance().subtract(portfolio.getReservedCash());
-            BigDecimal requiredCash = request.getQuantity().multiply(request.getLimitPrice());
+            BigDecimal requiredCash = request.getQuantity().multiply(request.getLimitPrice()) .setScale(2, RoundingMode.HALF_UP);
 
             if(availableCash.compareTo(requiredCash) < 0){
                 throw new BusinessRuleException("Insufficient available cash for this order");
@@ -125,14 +140,21 @@ public class InvestmentOrderService {
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
 
-        //find investment order
-        InvestmentOrder order = investmentOrderRepository.findById(orderId)
+        //find investment order using database locking
+        InvestmentOrder order = investmentOrderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new InformationNotFoundException("Investment order not found"));
 
         //verify order belongs to the user
         if (!order.getPortfolio().getId().equals(user.getPortfolio().getId())) {
             throw new BusinessRuleException("You cannot cancel this order");
         }
+
+        //get user portfolio using locking method (portfolio locking)
+        Portfolio portfolio = portfolioRepository.findByIdForUpdate(user.getPortfolio().getId())
+                .orElseThrow(() -> new InformationNotFoundException("Portfolio does not exist"));
+
+        //refresh portfolio to get the latest database values
+        entityManager.refresh(portfolio);
 
         //check order status
         if (order.getStatus() != OrderStatus.PENDING) {
@@ -142,31 +164,34 @@ public class InvestmentOrderService {
         //BUY order
         //release reserved cash(portfolio)
         if(order.getOrderType() == TransactionType.BUY){
-            //get user portfolio
-            Portfolio portfolio = user.getPortfolio();
-
             //calculates the reserved amount
-            BigDecimal requiredCash = order.getQuantity().multiply(order.getLimitPrice());
+            BigDecimal requiredCash = order.getQuantity().multiply(order.getLimitPrice()) .setScale(2, RoundingMode.HALF_UP);
+
+            //check sufficient reserved cash before cancellation
+            if (portfolio.getReservedCash().compareTo(requiredCash) < 0) {
+                throw new BusinessRuleException("Insufficient reserved cash");
+            }
 
             //update reservedCash
             portfolio.setReservedCash(portfolio.getReservedCash().subtract(requiredCash));
-
         }
         //SELL order
         //release reserved shares (holdings)
         else if (order.getOrderType() == TransactionType.SELL) {
-                //get user portfolio
-                Portfolio portfolio = user.getPortfolio();
+            //find the holding using database locking
+            Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, order.getAsset())
+                    .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
 
-                //find the holding
-                Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, order.getAsset())
-                        .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+            //get reserved quantity
+            BigDecimal reservedQuantity = order.getQuantity();
 
-                //get reserved quantity
-                BigDecimal reservedQuantity = order.getQuantity();
+            //check sufficient reserved shares before cancellation
+            if (holding.getReservedQuantity().compareTo(reservedQuantity) < 0) {
+                throw new BusinessRuleException("Insufficient reserved shares");
+            }
 
-                //update reserved quantity
-                holding.setReservedQuantity(holding.getReservedQuantity().subtract(reservedQuantity));
+            //update reserved quantity
+            holding.setReservedQuantity(holding.getReservedQuantity().subtract(reservedQuantity));
         }
 
 
@@ -176,71 +201,18 @@ public class InvestmentOrderService {
 
     }
 
-    //method to execute pending orders weather they are buy/sell
-    @Transactional
+    //method to execute pending orders whether they are buy/sell(finds pending orders)
+    @Scheduled(fixedDelay = 10000) //wait 10s after each execution finishes before running again
     public void executePendingOrders() {
         //retrieve all pending orders
         List<InvestmentOrder> pendingOrders = investmentOrderRepository.findByStatus(OrderStatus.PENDING);
 
-        //to process each order
+        //execute each order in its own transaction
         for(InvestmentOrder order : pendingOrders){
-            //get asset current price and order's limit price
-            BigDecimal currentPrice = order.getAsset().getCurrentPrice();
-            BigDecimal limitPrice = order.getLimitPrice();
-
-            //BUY
-            if(order.getOrderType() == TransactionType.BUY && currentPrice.compareTo(limitPrice) <= 0){
-                //execute BUY limit orders
-                //get user portfolio
-                Portfolio portfolio = order.getPortfolio();
-
-                BigDecimal actualCost = order.getQuantity().multiply(currentPrice);
-                BigDecimal reservedCash = order.getQuantity().multiply(limitPrice);
-
-                //update the portfolio's cashBalance and reservedCash
-                portfolio.setCashBalance(portfolio.getCashBalance().subtract(actualCost));
-                portfolio.setReservedCash(portfolio.getReservedCash().subtract(reservedCash));
-
-                //update holdings
-                tradeExecutionService.updateHoldingAfterBuy(portfolio, order.getAsset(), order.getQuantity(), currentPrice);
-
-                //create BUY transaction
-                tradeExecutionService.createTransaction(portfolio, order.getAsset(), TransactionType.BUY, order.getQuantity(), currentPrice);
-
-                //update order status
-                order.setStatus(OrderStatus.FILLED);
-                order.setExecutedAt(LocalDateTime.now());
-            }
-            //SELL
-            else if (order.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
-                //execute SELL limit orders
-                //get user portfolio and holding
-                Portfolio portfolio = order.getPortfolio();
-                Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, order.getAsset())
-                        .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
-
-                //calculate sale proceeds
-                BigDecimal proceeds = order.getQuantity().multiply(currentPrice);
-
-                //release reserved shares
-                if (holding.getReservedQuantity().compareTo(order.getQuantity()) < 0) {
-                    throw new BusinessRuleException("Insufficient reserved shares");
-                }
-                holding.setReservedQuantity(holding.getReservedQuantity().subtract(order.getQuantity()));
-
-                //reduce the holding using the shared service
-                tradeExecutionService.updateHoldingAfterSell(portfolio, order.getAsset(), order.getQuantity());
-
-                //increase the portfolio cash balance
-                portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
-
-                //create SELL transaction
-                tradeExecutionService.createTransaction(portfolio, order.getAsset(), TransactionType.SELL, order.getQuantity(), currentPrice);
-
-                //update order status
-                order.setStatus(OrderStatus.FILLED);
-                order.setExecutedAt(LocalDateTime.now());
-
+            try {
+                orderExecutionService.executeSingleOrder(order.getId());
+            } catch (Exception e) {
+                log.error("Failed to execute order ID: {}", order.getId(), e);
             }
         }
     }
