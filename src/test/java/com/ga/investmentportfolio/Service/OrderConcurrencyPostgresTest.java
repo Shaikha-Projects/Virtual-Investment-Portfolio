@@ -1,6 +1,8 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.*;
+import com.ga.investmentportfolio.Config.ThreadPoolConfig;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import com.ga.investmentportfolio.Enums.*;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
@@ -70,11 +72,11 @@ class OrderConcurrencyPostgresTest {
     @Configuration
     @EnableTransactionManagement
     @EnableJpaRepositories(basePackageClasses = InvestmentOrderRepository.class)
-    @Import({InvestmentOrderService.class, OrderExecutionService.class, TradeExecutionService.class, AssetService.class})
+    @Import({InvestmentOrderService.class, OrderExecutionService.class, TradeExecutionService.class, AssetService.class, ThreadPoolConfig.class})
     static class Config {
         @Bean DataSource dataSource() {
             String url = System.getenv("ORDER_TEST_JDBC_URL");
-            return new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema, user(), password());
+            return new DriverManagerDataSource(url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + "&ApplicationName=" + schema, user(), password());
         }
         @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource) {
             var factory = new LocalContainerEntityManagerFactoryBean();
@@ -165,10 +167,47 @@ class OrderConcurrencyPostgresTest {
         } finally { start.countDown(); pool.shutdownNow(); assertTrue(pool.awaitTermination(20, TimeUnit.SECONDS)); }
     }
 
+    ThreadPoolTaskExecutor pool() { return context.getBean("orderExecutor", ThreadPoolTaskExecutor.class); }
+
+    void awaitCondition(java.util.function.BooleanSupplier condition, String message) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (!condition.getAsBoolean()) {
+            assertTrue(System.nanoTime() < deadline, message);
+            try { Thread.sleep(10); }
+            catch (InterruptedException failure) { Thread.currentThread().interrupt(); throw new AssertionError(failure); }
+        }
+    }
+
+    void poolIdle() {
+        // A fresh core worker owns its first task before getActiveCount() observes it.
+        // The service registers every accepted task before submission, covering that gap.
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(orders);
+        Set<?> processing = (Set<?>) ReflectionTestUtils.getField(target, "processingOrderIds");
+        assertNotNull(processing);
+        awaitCondition(() -> processing.isEmpty() && pool().getActiveCount() == 0 && pool().getThreadPoolExecutor().getQueue().isEmpty(),
+                "Order pool did not finish its tasks");
+    }
+
+    void dispatchAndWait() { orders.executePendingOrders(); poolIdle(); }
+
+    @AfterEach void drainWorkers() { poolIdle(); }
+
+    // ApplicationName identifies only connections in this test's random schema.
+    long waitingWorkers(String table) {
+        // Observe on a fresh connection to avoid PostgreSQL's transaction-scoped statistics snapshot.
+        try (var connection = DriverManager.getConnection(System.getenv("ORDER_TEST_JDBC_URL"), user(), password());
+             var statement = connection.prepareStatement(
+                     "select count(*) from pg_stat_activity where application_name = ? " +
+                     "and wait_event_type = 'Lock' and query like ?")) {
+            statement.setString(1, schema); statement.setString(2, "%" + table + "%");
+            try (var result = statement.executeQuery()) { assertTrue(result.next()); return result.getLong(1); }
+        } catch (java.sql.SQLException failure) { throw new AssertionError(failure); }
+    }
+
     @Test void automaticBuyReleasesFullReservationAndUsesActualMarketPrice() {
         holding("2", "50");
         long id = place(TransactionType.BUY, "3", "100");
-        orders.executePendingOrders();
+        dispatchAndWait();
         read(() -> { amount("730", portfolio().getCashBalance()); amount("0", portfolio().getReservedCash());
             amount("5", holding().getQuantity()); amount("74", holding().getAverageBuyPrice());
             assertEquals(OrderStatus.FILLED, order(id).getStatus()); assertNotNull(order(id).getExecutedAt()); return null; });
@@ -181,7 +220,7 @@ class OrderConcurrencyPostgresTest {
         holding("10", "50");
         long id = place(TransactionType.SELL, "3", "80");
         place(TransactionType.SELL, "2", "100"); // remains pending; keep its shares reserved
-        orders.executePendingOrders();
+        dispatchAndWait();
         read(() -> { amount("1270", portfolio().getCashBalance()); amount("7", holding().getQuantity());
             amount("2", holding().getReservedQuantity()); amount("50", holding().getAverageBuyPrice());
             assertEquals(OrderStatus.FILLED, order(id).getStatus()); return null; });
@@ -191,7 +230,7 @@ class OrderConcurrencyPostgresTest {
     @Test void unmetBuyAndSellConditionsStayPendingWithoutFinancialChanges() {
         holding("10", "50");
         long buy = place(TransactionType.BUY, "2", "80"), sell = place(TransactionType.SELL, "3", "100");
-        orders.executePendingOrders();
+        dispatchAndWait();
         read(() -> { amount("1000", portfolio().getCashBalance()); amount("160", portfolio().getReservedCash());
             amount("10", holding().getQuantity()); amount("3", holding().getReservedQuantity());
             for (long id : new long[]{buy, sell}) { assertEquals(OrderStatus.PENDING, order(id).getStatus()); assertNull(order(id).getExecutedAt()); } return null; });
@@ -270,7 +309,7 @@ class OrderConcurrencyPostgresTest {
             place(TransactionType.BUY, "7", "100");
         });
         List<Throwable> failures = race(placeWithPreloadedPortfolio, placeWithPreloadedPortfolio);
-        orders.executePendingOrders();
+        dispatchAndWait();
         read(() -> { assertAll(
                 () -> assertEquals(1, failures.size(), failures.toString()),
                 () -> assertTrue(portfolio().getCashBalance().signum() >= 0, "Negative cash: " + portfolio().getCashBalance()),
@@ -296,7 +335,7 @@ class OrderConcurrencyPostgresTest {
     @Test void fractionalOrderMustReleaseReservationAndMatchRecordedCashAmount() {
         tx.executeWithoutResult(status -> em.find(Asset.class, assetId).setCurrentPrice(bd("1.00")));
         long id = place(TransactionType.BUY, "0.015", "1.00");
-        orders.executePendingOrders();
+        dispatchAndWait();
         read(() -> { assertEquals(OrderStatus.FILLED, order(id).getStatus());
             assertAll(() -> amount("0", portfolio().getReservedCash()),
                     () -> amount("999.98", portfolio().getCashBalance()),
@@ -433,6 +472,70 @@ class OrderConcurrencyPostgresTest {
             assertEquals(0L, em.createQuery("select count(h) from Holding h", Long.class).getSingleResult());
             return null;
         });
+    }
+
+    @Test void pooledBuyOrdersWaitForPortfolioLockThenPreserveCashAndOneHolding() {
+        long first = place(TransactionType.BUY, "2", "100"), second = place(TransactionType.BUY, "3", "100");
+        try {
+            tx.executeWithoutResult(status -> {
+                context.getBean(PortfolioRepository.class).findByIdForUpdate(portfolioId).orElseThrow();
+                orders.executePendingOrders();
+                awaitCondition(() -> waitingWorkers("portfolios") == 2, "Two pool workers must wait for the portfolio lock");
+                assertEquals(0, transactionCount());
+            });
+        } finally { poolIdle(); }
+        read(() -> {
+            amount("550", portfolio().getCashBalance()); amount("0", portfolio().getReservedCash());
+            amount("5", holding().getQuantity()); amount("90", holding().getAverageBuyPrice());
+            assertEquals(1L, em.createQuery("select count(h) from Holding h", Long.class).getSingleResult());
+            assertEquals(OrderStatus.FILLED, order(first).getStatus()); assertEquals(OrderStatus.FILLED, order(second).getStatus());
+            return null;
+        });
+        assertEquals(2, transactionCount());
+    }
+
+    @Test void pooledSellOrdersWaitForHoldingLockThenPreserveSharesAndBothProceeds() {
+        holding("10", "50");
+        long first = place(TransactionType.SELL, "2", "80"), second = place(TransactionType.SELL, "3", "80");
+        try {
+            tx.executeWithoutResult(status -> {
+                context.getBean(HoldingRepository.class).findByPortfolioAndAsset(portfolio(), em.find(Asset.class, assetId)).orElseThrow();
+                orders.executePendingOrders();
+                awaitCondition(() -> waitingWorkers("holdings") == 1 && waitingWorkers("portfolios") == 1,
+                        "Pool workers must wait for the holding and portfolio locks");
+                assertEquals(0, transactionCount());
+            });
+        } finally { poolIdle(); }
+        read(() -> {
+            amount("1450", portfolio().getCashBalance()); amount("5", holding().getQuantity());
+            amount("0", holding().getReservedQuantity()); amount("50", holding().getAverageBuyPrice());
+            assertEquals(OrderStatus.FILLED, order(first).getStatus()); assertEquals(OrderStatus.FILLED, order(second).getStatus());
+            return null;
+        });
+        assertEquals(2, transactionCount());
+    }
+
+    @Test void pooledFailedOrderRollsBackWhileAnotherOrderCommitsAndCanRetry() {
+        holding("10", "50");
+        long failed = place(TransactionType.BUY, "3", "100"), healthy = place(TransactionType.SELL, "2", "80");
+        tx.executeWithoutResult(status -> portfolio().setReservedCash(bd("299.99")));
+        dispatchAndWait();
+        read(() -> {
+            amount("1180", portfolio().getCashBalance()); amount("299.99", portfolio().getReservedCash());
+            amount("8", holding().getQuantity()); amount("0", holding().getReservedQuantity());
+            assertEquals(OrderStatus.PENDING, order(failed).getStatus()); assertNull(order(failed).getExecutedAt());
+            assertEquals(OrderStatus.FILLED, order(healthy).getStatus()); assertNotNull(order(healthy).getExecutedAt());
+            return null;
+        });
+        assertEquals(1, transactionCount());
+        tx.executeWithoutResult(status -> portfolio().setReservedCash(bd("300")));
+        dispatchAndWait();
+        read(() -> {
+            amount("910", portfolio().getCashBalance()); amount("0", portfolio().getReservedCash());
+            amount("11", holding().getQuantity()); assertEquals(OrderStatus.FILLED, order(failed).getStatus());
+            return null;
+        });
+        assertEquals(2, transactionCount());
     }
 
     @Test void portfolioWriteLockActuallyBlocksAnotherConnection() throws Exception {
