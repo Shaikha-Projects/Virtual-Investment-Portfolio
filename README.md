@@ -254,6 +254,47 @@ This allows notifications to be processed asynchronously.
 
 If a financial transaction is rolled back, its after-commit notification is not sent.
 
+## Investment API Rate Limiting
+
+The application uses Bucket4j to protect selected endpoints from excessive requests.
+
+### Authentication Rate Limiting
+
+Login and password-reset requests are limited to three attempts per one-minute refill interval.
+
+These limits are tracked separately for each email address.
+
+### Project 3 — Investment Rate Limiting
+
+Project 3 introduces a centralized rate-limiting filter for investment operations.
+
+Each authenticated user receives an independent rate-limit bucket for each protected endpoint.
+
+The configured limit is:
+
+**5 requests per minute per user per endpoint.**
+
+| HTTP Method | Endpoint | Rate Limit |
+|---|---|---|
+| POST | `/portfolio/buy` | 5 requests/minute |
+| POST | `/portfolio/sell` | 5 requests/minute |
+| POST | `/orders` | 5 requests/minute |
+| PATCH | `/orders/{id}/cancel` | 5 requests/minute |
+
+If the request limit is exceeded, the application returns:
+
+**HTTP 429 — Too Many Requests**
+
+The cancellation endpoint uses a normalized key so requests for different order IDs share the same cancellation limit.
+
+GET requests and SSE subscriptions are not affected by this additional investment rate limiter.
+
+Rate-limit buckets are currently stored in application memory, meaning they are not shared between multiple server instances.
+
+Bucket4j uses interval-based token refilling rather than an exact sliding-window request counter.
+
+
+
 
 
 ## User Stories
