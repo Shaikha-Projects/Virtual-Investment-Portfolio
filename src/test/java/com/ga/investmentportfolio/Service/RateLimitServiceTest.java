@@ -51,4 +51,21 @@ public class RateLimitServiceTest {
         assertFalse(rateLimitService.allowInvestmentRequest(email2, endpoint));
 
     }
+    @Test
+    //test that all five BUY requests doesn't prevent the same user from making SELL requests
+    void shouldTrackEndpointsSeparately() {
+        String email = "test@example.com";
+        String buyEndpoint = "/portfolio/buy";
+        String sellEndpoint = "/portfolio/sell";
+
+        for (int i = 0; i < 5; i++) {
+            assertTrue(rateLimitService.allowInvestmentRequest(email, buyEndpoint));
+            assertTrue(rateLimitService.allowInvestmentRequest(email, sellEndpoint));
+        }
+
+        //sixth request should be rejected
+        assertFalse(rateLimitService.allowInvestmentRequest(email, buyEndpoint));
+        assertFalse(rateLimitService.allowInvestmentRequest(email, sellEndpoint));
+
+    }
 }
