@@ -160,6 +160,13 @@ public class OrderExecutionService {
                             + " shares of " + lockedOrder.getAsset().getSymbol())
             );
 
+            //add long
+            log.info("Limit SELL order executed - orderId: {}, asset: {}, quantity: {}, price: {}",
+                    lockedOrder.getId(),
+                    lockedOrder.getAsset().getSymbol(),
+                    lockedOrder.getQuantity(),
+                    currentPrice);
+
         }
     }
 
