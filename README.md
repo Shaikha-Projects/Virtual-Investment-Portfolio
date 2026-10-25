@@ -215,6 +215,33 @@ Transaction management ensures that related changes are committed together.
 
 If an operation fails, its database changes are rolled back.
 
+### 3. Thread-Safe Collections
+
+The application uses `ConcurrentHashMap.newKeySet()` to track tasks currently queued or being processed.
+
+Two separate sets track:
+
+- Investment order IDs
+- Asset IDs
+
+This prevents the scheduler from submitting the same order or asset multiple times while an earlier task is still pending.
+
+Task IDs are removed after processing completes or fails.
+
+### 4. Status Validation
+
+Before executing an order, the worker checks that its status is still `PENDING`.
+
+Before updating an asset price, the worker checks that the asset is still `ACTIVE`.
+
+These checks are performed after acquiring the relevant database locks.
+
+This prevents duplicate order execution and avoids updating assets that have already been deactivated.
+
+
+
+
+
 ## User Stories
 
 The user stories for this project were created and managed using Jira. They were used to define the required functionality and track the implementation of the application's features.
