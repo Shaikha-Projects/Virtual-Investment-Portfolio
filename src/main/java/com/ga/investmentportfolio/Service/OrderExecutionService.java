@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.Enums.AuditAction;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
@@ -28,6 +29,7 @@ public class OrderExecutionService {
     private final HoldingRepository holdingRepository;
     private final TradeExecutionService tradeExecutionService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditLogService auditLogService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -85,6 +87,12 @@ public class OrderExecutionService {
             lockedOrder.setStatus(OrderStatus.FILLED);
             lockedOrder.setExecutedAt(LocalDateTime.now());
 
+            //save EXECUTE_LIMIT_ORDER audit log
+            auditLogService.log(lockedOrder.getPortfolio().getUser().getEmailAddress(), AuditAction.EXECUTE_LIMIT_ORDER,
+                    "Executed BUY limit order #" + lockedOrder.getId()
+                            + " for " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol()
+            );
+
             //publish notification
             eventPublisher.publishEvent( new InvestmentNotificationEvent(
                             lockedOrder.getPortfolio().getUser().getEmailAddress(),
@@ -128,6 +136,13 @@ public class OrderExecutionService {
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
             lockedOrder.setExecutedAt(LocalDateTime.now());
+
+            //save EXECUTE_LIMIT_ORDER audit log
+            auditLogService.log(lockedOrder.getPortfolio().getUser().getEmailAddress(), AuditAction.EXECUTE_LIMIT_ORDER,
+                    "Executed SELL limit order #" + lockedOrder.getId()
+                            + " for " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol()
+            );
+
 
             //publish notification
             eventPublisher.publishEvent( new InvestmentNotificationEvent(
