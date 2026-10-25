@@ -9,13 +9,19 @@ import com.ga.investmentportfolio.Repository.PriceHistoryRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -23,35 +29,17 @@ import java.util.concurrent.ThreadLocalRandom;
 public class MarketSimulationService {
     private final AssetRepository assetRepository;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final MarketPriceUpdateService marketPriceUpdateService;
+    private static final Logger log = LoggerFactory.getLogger(MarketSimulationService.class);
 
-    //method to calculate random price changes
-    public BigDecimal calculateNewPrice(BigDecimal currentPrice) {
-        //generate random change between (−0.5% and +0.5%(excluded))
-        double change = ThreadLocalRandom.current().nextDouble(-0.005, 0.005);
 
-        //convert change
-        BigDecimal changeDecimal = BigDecimal.valueOf(change);
+    //track price changes that have been submitted to thread pool but haven't finished processing
+    private final Set<Long> processingAssetIds = ConcurrentHashMap.newKeySet();
 
-        //calculate New Price = Current Price × (1 + Change)
-        BigDecimal multiplier = BigDecimal.ONE.add(changeDecimal);
-        BigDecimal newPrice = currentPrice.multiply(multiplier);
-
-        //round the price to two decimal points
-        newPrice = newPrice.setScale(2, RoundingMode.HALF_UP);
-
-        //safeguard to ensure the price never becomes 0.00
-        if (newPrice.compareTo(new BigDecimal("0.01")) < 0) {
-            newPrice = new BigDecimal("0.01");
-        }
-
-        //return price
-        return newPrice;
-
-    }
-
+    @Qualifier("marketExecutor")
+    private final ThreadPoolTaskExecutor marketExecutor;
 
     //scheduled method to automatically update asset prices every 10s
-    @Transactional
     @Scheduled(fixedDelay = 10000)
     public void updateMarketPrices() {
         //retrieve active assets
@@ -59,17 +47,32 @@ public class MarketSimulationService {
 
         //calculate each asset's new price
         for (Asset asset : assets) {
-            BigDecimal newPrice = calculateNewPrice(asset.getCurrentPrice());
-            asset.setCurrentPrice(newPrice);
+            Long assetId = asset.getId();
 
-            //save the prices
-            assetRepository.save(asset);
+            //check whether price change is added to the asset tracker to prevent processing it twice
+            if (!processingAssetIds.add(assetId)){
+                continue;
+            }
 
-            //save a PriceHistory record
-            PriceHistory history = new PriceHistory();
-            history.setAsset(asset);
-            history.setPrice(newPrice);
-            priceHistoryRepository.save(history);
+            try{
+                marketExecutor.execute(() -> {
+                    try {
+                        //update asset price
+                        marketPriceUpdateService.updateAssetPrice(assetId);
+                    } catch (Exception e) {
+                        log.error("Failed to update Asset ID: {}", assetId, e);
+                    } finally {
+                        //remove from the asset tracker
+                        processingAssetIds.remove(assetId);
+                    }
+                });
+            }catch (Exception e) {
+                //remove from the asset processing tracker if pool is full and rejects order
+                processingAssetIds.remove(assetId);
+                log.error("Failed to execute Asset ID: {}", assetId, e);
+            }
+
+
         }
 
     }

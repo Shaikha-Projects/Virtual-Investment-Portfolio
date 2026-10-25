@@ -3,11 +3,14 @@ package com.ga.investmentportfolio.Repository;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.AssetType;
 import com.ga.investmentportfolio.Model.Asset;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AssetRepository extends JpaRepository<Asset, Long> {
@@ -39,4 +42,9 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     //check symbol exist on an asset whose ID is not the asset we're currently updating
     //symbol is the new symbol to be checked, id the current asset id
     boolean existsBySymbolIgnoreCaseAndIdNot(String symbol, Long id);
+
+    //method to lock database row
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Asset a WHERE a.id = :assetId")
+    Optional<Asset> findByIdForUpdate(Long assetId);
 }

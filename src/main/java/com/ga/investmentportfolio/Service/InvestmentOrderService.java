@@ -16,7 +16,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,6 +26,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +40,12 @@ public class InvestmentOrderService {
     private final TradeExecutionService tradeExecutionService;
     private final OrderExecutionService orderExecutionService;
     private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
+
+    //track orders that have been submitted to thread pool but haven't finished processing
+    private final Set<Long> processingOrderIds = ConcurrentHashMap.newKeySet();
+
+    @Qualifier("orderExecutor") //to specify bean
+    private final ThreadPoolTaskExecutor orderExecutor;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -209,9 +219,27 @@ public class InvestmentOrderService {
 
         //execute each order in its own transaction
         for(InvestmentOrder order : pendingOrders){
+            //check whether order is added to the order tracker to prevent processing it twice
+            if(!processingOrderIds.add(order.getId())){
+                continue;
+            }
+
             try {
-                orderExecutionService.executeSingleOrder(order.getId());
+                orderExecutor.execute(()-> {
+                    try{
+                        orderExecutionService.executeSingleOrder(order.getId());
+                    }catch (Exception e) {
+                        log.error("Failed to execute order ID: {}", order.getId(), e);
+                    } finally {
+                        //remove from the order processing tracker
+                        processingOrderIds.remove(order.getId());
+                    }
+
+                });
+
             } catch (Exception e) {
+                //remove from the order processing tracker if pool is full and rejects order
+                processingOrderIds.remove(order.getId());
                 log.error("Failed to execute order ID: {}", order.getId(), e);
             }
         }
