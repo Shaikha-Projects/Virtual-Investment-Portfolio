@@ -50,6 +50,7 @@ The purpose of this application is to provide a safe environment where users can
 - Jakarta Bean Validation
 - Spring Mail
 - Server-Sent Events (SSE)
+- Spring TaskExecutor / @Async / @Scheduled
 - Bucket4j
 - Swagger / OpenAPI
 - JUnit
@@ -88,16 +89,24 @@ The main persisted components of the system include:
 - Email Verification Token
 - Password Reset Token
 - Audit Log
+- Investment Order
+- Price History
+
+The database model contains 11 entities.
 
 The main investment flow is:
 
-`User → Portfolio → Asset → Buy/Sell → Transaction → Holdings → Portfolio Performance`
+User → Portfolio → Asset → Buy/Sell → Transaction → Holdings → Portfolio Performance
+
+The limit-order flow is:
+
+User → Place BUY/SELL Limit Order → PENDING → Market Price Check → FILLED (or user cancels → CANCELLED)
 
 ## General Approach
 
 I approached the project by first identifying the main requirements and breaking them into smaller user stories and development tasks. I designed the database structure and relationships around the main investment workflow, where a user has a portfolio and can interact with available assets through buy and sell operations. I used a layered architecture to separate the controllers, business logic, database access, security, and data transfer objects.
 
-I implemented the project incrementally, starting with user registration, email verification, authentication, and JWT security before moving to the investment features. The investment logic was implemented with business rules to prevent actions such as purchasing with insufficient funds or selling more shares than the user owns. After the core functionality was working, I added features such as watchlists, portfolio performance, administrative asset management, user deactivation, audit logging, rate limiting, real-time SSE notifications, pagination and sorting, Swagger documentation, seed data, and automated testing.
+I implemented the project incrementally, starting with user registration, email verification, authentication, and JWT security before moving to the investment features. The investment logic was implemented with business rules to prevent actions such as purchasing with insufficient funds or selling more shares than the user owns. After the core functionality was working, I added watchlists, portfolio performance, administrative asset management, user deactivation, audit logging, rate limiting, real-time SSE notifications, pagination and sorting, Swagger documentation, seed data, and automated testing. For Project 3, I extended investment functionality with limit orders, automatic concurrent order execution, concurrent simulated market price updates, reliable after-commit notifications, further audit logging, and database concurrency controls.
 
 Git and GitHub were used throughout development with separate branches for features and pull requests to merge completed work into the main branch.
 
