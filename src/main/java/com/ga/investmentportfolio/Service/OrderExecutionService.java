@@ -14,6 +14,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderExecutionService {
     private final InvestmentOrderRepository investmentOrderRepository;
     private final PortfolioRepository portfolioRepository;
@@ -100,6 +102,13 @@ public class OrderExecutionService {
                                     + " shares of " + lockedOrder.getAsset().getSymbol())
             );
 
+            //add log
+            log.info("Limit BUY order executed - orderId: {}, asset: {}, quantity: {}, price: {}",
+                    lockedOrder.getId(),
+                    lockedOrder.getAsset().getSymbol(),
+                    lockedOrder.getQuantity(),
+                    currentPrice);
+
         }
         //SELL
         else if (lockedOrder.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
@@ -150,6 +159,13 @@ public class OrderExecutionService {
                     "Limit SELL order executed: " + lockedOrder.getQuantity()
                             + " shares of " + lockedOrder.getAsset().getSymbol())
             );
+
+            //add long
+            log.info("Limit SELL order executed - orderId: {}, asset: {}, quantity: {}, price: {}",
+                    lockedOrder.getId(),
+                    lockedOrder.getAsset().getSymbol(),
+                    lockedOrder.getQuantity(),
+                    currentPrice);
 
         }
     }

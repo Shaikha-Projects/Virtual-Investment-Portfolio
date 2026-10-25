@@ -15,6 +15,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InvestmentOrderService {
     private final InvestmentOrderRepository investmentOrderRepository;
     private final UserRepository userRepository;
@@ -121,6 +123,13 @@ public class InvestmentOrderService {
 
         //save investment order
         investmentOrderRepository.save(order);
+
+        //add log
+        log.info("Limit order placed - orderId: {}, type: {}, asset: {}, quantity: {}",
+                order.getId(),
+                order.getOrderType(),
+                order.getAsset().getSymbol(),
+                order.getQuantity());
 
         //add an audit record
         auditLogService.log(user.getEmailAddress(), AuditAction.PLACE_LIMIT_ORDER,
@@ -228,6 +237,12 @@ public class InvestmentOrderService {
                 "Limit order cancelled: " + order.getQuantity()
                         + " shares of " + order.getAsset().getSymbol())
         );
+
+        //add log
+        log.info("Limit order cancelled - orderId: {}, asset: {}, quantity: {}",
+                order.getId(),
+                order.getAsset().getSymbol(),
+                order.getQuantity());
 
     }
 

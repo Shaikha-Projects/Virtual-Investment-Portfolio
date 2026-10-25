@@ -1,5 +1,6 @@
 package com.ga.investmentportfolio.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -7,6 +8,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class NotificationService {
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
@@ -55,6 +57,7 @@ public class NotificationService {
         try {
             emitter.send(SseEmitter.event().id(java.util.UUID.randomUUID().toString()).name("investment-notification").data(message));
         } catch (IOException | IllegalStateException e) {
+            log.warn("Failed to send notification - user: {}", email, e);
             emitters.remove(email, emitter);
         }
 
