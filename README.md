@@ -110,6 +110,69 @@ I implemented the project incrementally, starting with user registration, email 
 
 Git and GitHub were used throughout development with separate branches for features and pull requests to merge completed work into the main branch.
 
+## Project 3 — Concurrency and Multithreading
+
+Project 3 introduces multithreading to allow the application to process multiple tasks concurrently while maintaining data consistency.
+
+The application uses three separate Spring-managed thread pools.
+
+### 1. Order Execution Thread Pool
+
+The `orderExecutor` thread pool handles automatic execution of pending BUY and SELL limit orders.
+
+The system periodically checks pending orders to determine whether their limit prices have been reached.
+
+When an order becomes eligible for execution, the scheduler submits the order to the thread pool.
+
+Each worker processes an order independently using a database transaction.
+
+The thread pool configuration includes:
+
+- Core pool size: 3
+- Maximum pool size: 5
+- Queue capacity: 10
+
+The order scheduler runs approximately every 10 seconds.
+
+### 2. Market Price Update Thread Pool
+
+The `marketExecutor` thread pool handles simulated market price updates.
+
+The application periodically retrieves active assets and submits their IDs to the thread pool.
+
+Each worker independently updates an asset's price and records the new value in the price history table.
+
+Simulated price movements are limited to approximately ±0.5% per update.
+
+The thread pool configuration includes:
+
+- Core pool size: 3
+- Maximum pool size: 5
+- Queue capacity: 20
+
+The market update scheduler runs approximately every 10 seconds.
+
+### 3. Notification Thread Pool
+
+The `notificationExecutor` thread pool handles asynchronous notifications.
+
+When an investment operation completes successfully, the application publishes a notification event.
+
+A transactional event listener receives the event after the database transaction has committed.
+
+The notification is then delivered asynchronously using Server-Sent Events (SSE).
+
+The thread pool configuration includes:
+
+- Core pool size: 2
+- Maximum pool size: 4
+- Queue capacity: 20
+
+This prevents notification delivery from unnecessarily delaying the main investment operation.
+
+
+
+
 ## User Stories
 
 The user stories for this project were created and managed using Jira. They were used to define the required functionality and track the implementation of the application's features.
