@@ -231,7 +231,7 @@ public class InvestmentOrderService {
                     }catch (Exception e) {
                         log.error("Failed to execute order ID: {}", order.getId(), e);
                     } finally {
-                        //remove from the order processing traker
+                        //remove from the order processing tracker
                         processingOrderIds.remove(order.getId());
                     }
 
