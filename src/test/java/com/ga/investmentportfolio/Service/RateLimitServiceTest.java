@@ -1,10 +1,18 @@
 package com.ga.investmentportfolio.Service;
 
+import com.ga.investmentportfolio.Filter.InvestmentRateLimitFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockFilterChain;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class RateLimitServiceTest {
@@ -66,6 +74,55 @@ public class RateLimitServiceTest {
         //sixth request should be rejected
         assertFalse(rateLimitService.allowInvestmentRequest(email, buyEndpoint));
         assertFalse(rateLimitService.allowInvestmentRequest(email, sellEndpoint));
+
+    }
+
+    @Test
+        //to test 5 investment request, sixth request receives HTTP 429
+    void shouldReturn429AfterFiveRequests() throws Exception {
+
+        //create the filter using our existing rate limit service
+        InvestmentRateLimitFilter filter = new InvestmentRateLimitFilter(rateLimitService);
+
+        //simulate an authenticated user
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        "test@example.com",
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        try {
+            //send 6 requests to the BUY endpoint
+            for (int i = 1; i <= 6; i++) {
+
+                //create a fake POST request
+                MockHttpServletRequest request = new MockHttpServletRequest("POST", "/portfolio/buy");
+                request.setServletPath("/portfolio/buy");
+
+                //create a fake HTTP response
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                //create a filter chain
+                MockFilterChain filterChain = new MockFilterChain();
+
+                //execute the rate limiting filter
+                filter.doFilter(request, response, filterChain);
+
+                if (i <= 5) {
+                    //first 5 requests should continue
+                    assertEquals(200, response.getStatus());
+                    assertEquals(1, filterChain.getRequest() == null ? 0 : 1);
+                } else {
+                    //sixth request should be rejected
+                    assertEquals(429, response.getStatus());
+                    assertNull(filterChain.getRequest());
+                }
+            }
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
     }
 }
