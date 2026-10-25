@@ -336,8 +336,27 @@ Audit logs for these operations are stored within the corresponding database tra
 
 If an operation fails and its transaction is rolled back, the related success audit log is also rolled back.
 
+## Testing and Verification
 
+The application uses JUnit and Mockito for automated testing, along with PostgreSQL integration tests.
 
+The last confirmed full regression run before the additional rate-limiting tests completed successfully with:
+
+- **132 passing tests**
+- **102 isolated PostgreSQL integration tests**
+
+The tests cover important application functionality, including:
+
+- Authentication and authorization
+- Portfolio operations
+- BUY and SELL transactions
+- Concurrent financial operations
+- Database locking
+- Automatic limit-order execution
+- Market price updates
+- Asynchronous notifications
+- Audit logging
+- Business rule validation
 
 ## User Stories
 
@@ -546,10 +565,14 @@ Make sure the Spring Boot backend is also running on port `8081` so the frontend
 
 ## Unsolved Problems
 
-There are currently no known critical issues affecting the core functionality of the application.
+No critical issues have been reported in the covered financial, market-update, notification, and audit integration tests.
+However, the full regression suite must be rerun after the recent rate-limiting changes.
 
-The application has been tested for its main workflows, including authentication, investment operations, role-based authorization, user deactivation, and important business rules. Further testing and refinement could still be performed for additional edge cases and production-level deployment.
+### Known Limitations
 
+- SSE notifications may be lost if a user is disconnected or the notification thread pool is saturated.
+- Rate-limit buckets are stored in application memory and are not shared between multiple server instances.
+  
 ## Major Challenges
 
 One of the main challenges was designing secure authentication and authorization using Spring Security and JWT. The application needed to support different user roles while ensuring that protected functionality could only be accessed by authorized users. An additional consideration was user deactivation: an inactive user should not only be prevented from logging in again, but should also lose access when using a JWT that was issued before the account was deactivated. This was handled by validating the current user status during authenticated requests.
