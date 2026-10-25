@@ -28,18 +28,27 @@ public class InvestmentRateLimitFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String endpoint = request.getServletPath();
 
-        //buy and sell and asset endpoint
+        //check buy and sell and asset endpoint
         boolean isBuy = method.equals("POST") && endpoint.equals("/portfolio/buy");
         boolean isSell = method.equals("POST") && endpoint.equals("/portfolio/sell");
 
+        //check limit order placement
+        boolean isPlaceOrder = method.equals("POST") && endpoint.equals("/orders");
+
+        //check limit order cancellation
+        boolean isCancelOrder = method.equals("PATCH") && endpoint.matches("/orders/\\d+/cancel");
+
         //check if request is protected
-        if (!isBuy && !isSell) {
+        if (!isBuy && !isSell && !isPlaceOrder && !isCancelOrder) {
             filterChain.doFilter(request, response);
             return;
         }
 
         //retrieve authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        //use the same bucket for all cancellation requests
+        String rateLimitEndpoint = isCancelOrder ? "/orders/{id}/cancel" : endpoint;
 
         //handle unauthenticated requests
         if (authentication == null || !authentication.isAuthenticated()
@@ -52,7 +61,7 @@ public class InvestmentRateLimitFilter extends OncePerRequestFilter {
         String email = authentication.getName();
 
         //check whether the user exceeded the rate limit
-        if (!rateLimitService.allowInvestmentRequest(email, endpoint)) {
+        if (!rateLimitService.allowInvestmentRequest(email, rateLimitEndpoint)) {
 
             //return HTTP 429
             response.setStatus(429); //too many requests
