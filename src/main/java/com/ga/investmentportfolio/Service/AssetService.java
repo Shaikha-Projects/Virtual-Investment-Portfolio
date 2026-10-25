@@ -3,6 +3,7 @@ package com.ga.investmentportfolio.Service;
 import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.*;
 import com.ga.investmentportfolio.Enums.*;
+import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
@@ -12,6 +13,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class AssetService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final TradeExecutionService tradeExecutionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -219,8 +222,12 @@ public class AssetService {
         //save audit log
         auditLogService.log(email, AuditAction.BUY_ASSET, "Bought " + request.getQuantity() + " shares of " + asset.getSymbol());
 
-        //send real-time notification
-        notificationService.sendNotification(email, "Purchase completed: " + request.getQuantity() + " shares of " + asset.getSymbol());
+        //send notification
+        eventPublisher.publishEvent(
+                new InvestmentNotificationEvent(
+                        email, "Purchase completed: " + request.getQuantity() + " shares of " + asset.getSymbol()
+                )
+        );
 
         return new TransactionResponse(
                 savedTransaction.getId(),
@@ -314,8 +321,12 @@ public class AssetService {
         //save audit log
         auditLogService.log(email, AuditAction.SELL_ASSET, "Sold " + request.getQuantity() + " shares of " + asset.getSymbol());
 
-        // send real-time notification
-        notificationService.sendNotification(email, "Sale completed: " + request.getQuantity() + " shares of " + asset.getSymbol());
+        //send notification
+        eventPublisher.publishEvent(
+                new InvestmentNotificationEvent(
+                        email, "Sale completed: " + request.getQuantity() + " shares of " + asset.getSymbol()
+                )
+        );
 
         return new TransactionResponse(
                 savedTransaction.getId(),

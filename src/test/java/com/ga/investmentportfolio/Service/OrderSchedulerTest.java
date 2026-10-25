@@ -28,7 +28,7 @@ class OrderSchedulerTest {
     final ThreadPoolTaskExecutor pool = new ThreadPoolConfig().orderExecutor();
     final InvestmentOrderService service = new InvestmentOrderService(repository, mock(UserRepository.class),
             mock(PortfolioRepository.class), mock(AssetRepository.class), mock(HoldingRepository.class),
-            mock(TradeExecutionService.class), execution, pool);
+            mock(TradeExecutionService.class), execution, mock(org.springframework.context.ApplicationEventPublisher.class), pool);
 
     @AfterEach void stop() throws Exception {
         pool.shutdown();
@@ -157,7 +157,7 @@ class OrderSchedulerTest {
     @Test void rejectedSubmissionDoesNotPreventLaterOrderInSameBatch() throws Exception {
         var rejecting = mock(ThreadPoolTaskExecutor.class);
         var dispatcher = new InvestmentOrderService(repository, mock(UserRepository.class), mock(PortfolioRepository.class),
-                mock(AssetRepository.class), mock(HoldingRepository.class), mock(TradeExecutionService.class), execution, rejecting);
+                mock(AssetRepository.class), mock(HoldingRepository.class), mock(TradeExecutionService.class), execution, mock(org.springframework.context.ApplicationEventPublisher.class), rejecting);
         doThrow(new org.springframework.core.task.TaskRejectedException("saturated"))
                 .doAnswer(call -> { call.getArgument(0, Runnable.class).run(); return null; })
                 .when(rejecting).execute(any(Runnable.class));

@@ -6,6 +6,7 @@ import com.ga.investmentportfolio.DTO.Response.InvestmentOrderResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
+import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.*;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,8 @@ public class InvestmentOrderService {
     private final TradeExecutionService tradeExecutionService;
     private final OrderExecutionService orderExecutionService;
     private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
+    private final ApplicationEventPublisher eventPublisher;
+
 
     //track orders that have been submitted to thread pool but haven't finished processing
     private final Set<Long> processingOrderIds = ConcurrentHashMap.newKeySet();
@@ -208,6 +212,13 @@ public class InvestmentOrderService {
         //change status to CANCELLED
         order.setStatus(OrderStatus.CANCELLED);
         investmentOrderRepository.save(order);
+
+        //publish notification
+        eventPublisher.publishEvent( new InvestmentNotificationEvent(
+                order.getPortfolio().getUser().getEmailAddress(),
+                "Limit order cancelled: " + order.getQuantity()
+                        + " shares of " + order.getAsset().getSymbol())
+        );
 
     }
 
