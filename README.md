@@ -170,7 +170,19 @@ The thread pool configuration includes:
 
 This prevents notification delivery from unnecessarily delaying the main investment operation.
 
+### Thread Pool Summary
 
+| Thread Pool | Core Threads | Maximum Threads | Queue Capacity | Responsibility |
+|---|---:|---:|---:|---|
+| `orderExecutor` | 3 | 5 | 10 | Execute pending limit orders |
+| `marketExecutor` | 3 | 5 | 20 | Update simulated market prices |
+| `notificationExecutor` | 2 | 4 | 20 | Deliver asynchronous SSE notifications |
+
+## Race Conditions and Thread Safety
+
+One of the main challenges in Project 3 was ensuring that concurrent operations did not produce incorrect financial results.
+
+The application uses several techniques to prevent race conditions.
 
 
 ## User Stories
