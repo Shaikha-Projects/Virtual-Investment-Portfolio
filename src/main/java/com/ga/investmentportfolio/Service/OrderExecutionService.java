@@ -2,6 +2,7 @@ package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
+import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.Holding;
@@ -12,6 +13,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -25,6 +27,7 @@ public class OrderExecutionService {
     private final PortfolioRepository portfolioRepository;
     private final HoldingRepository holdingRepository;
     private final TradeExecutionService tradeExecutionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -81,6 +84,14 @@ public class OrderExecutionService {
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
             lockedOrder.setExecutedAt(LocalDateTime.now());
+
+            //publish notification
+            eventPublisher.publishEvent( new InvestmentNotificationEvent(
+                            lockedOrder.getPortfolio().getUser().getEmailAddress(),
+                            "Limit BUY order executed: " + lockedOrder.getQuantity()
+                                    + " shares of " + lockedOrder.getAsset().getSymbol())
+            );
+
         }
         //SELL
         else if (lockedOrder.getOrderType() == TransactionType.SELL && currentPrice.compareTo(limitPrice) >= 0){
@@ -117,6 +128,13 @@ public class OrderExecutionService {
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
             lockedOrder.setExecutedAt(LocalDateTime.now());
+
+            //publish notification
+            eventPublisher.publishEvent( new InvestmentNotificationEvent(
+                    lockedOrder.getPortfolio().getUser().getEmailAddress(),
+                    "Limit SELL order executed: " + lockedOrder.getQuantity()
+                            + " shares of " + lockedOrder.getAsset().getSymbol())
+            );
 
         }
     }

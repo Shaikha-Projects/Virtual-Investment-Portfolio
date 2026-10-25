@@ -50,7 +50,7 @@ public class AssetServiceTest {
         assetService = new AssetService(
                 assetRepository, userRepository, holdingRepository,
                 transactionRepository, portfolioRepository, auditLogService, notificationService,
-                new TradeExecutionService(holdingRepository, transactionRepository));
+                new TradeExecutionService(holdingRepository, transactionRepository), mock(org.springframework.context.ApplicationEventPublisher.class));
         ReflectionTestUtils.setField(assetService, "entityManager", mock(EntityManager.class));
     }
 
