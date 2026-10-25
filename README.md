@@ -238,7 +238,21 @@ These checks are performed after acquiring the relevant database locks.
 
 This prevents duplicate order execution and avoids updating assets that have already been deactivated.
 
+### 5. Transactional Notifications
 
+The application uses:
+
+`@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`
+
+This ensures successful investment notifications are only sent after the corresponding database transaction commits.
+
+The application also uses:
+
+`@Async("notificationExecutor")`
+
+This allows notifications to be processed asynchronously.
+
+If a financial transaction is rolled back, its after-commit notification is not sent.
 
 
 
