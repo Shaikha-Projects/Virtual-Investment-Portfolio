@@ -184,6 +184,21 @@ One of the main challenges in Project 3 was ensuring that concurrent operations 
 
 The application uses several techniques to prevent race conditions.
 
+### 1. Pessimistic Database Locking
+
+The application uses JPA `PESSIMISTIC_WRITE` locking during operations that modify shared database records.
+
+This protects critical data such as:
+
+- Portfolio cash balances
+- Holdings
+- Investment orders
+- Assets
+
+For example, if two BUY operations attempt to use the same portfolio balance simultaneously, database locking ensures that one operation checks the updated balance after the other operation completes.
+
+This prevents both operations from spending the same available funds.
+
 
 ## User Stories
 
