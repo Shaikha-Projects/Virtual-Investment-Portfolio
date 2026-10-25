@@ -1,6 +1,8 @@
 package com.ga.investmentportfolio.Security;
 
+import com.ga.investmentportfolio.Filter.InvestmentRateLimitFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +27,8 @@ import java.util.List;
 public class SecurityConfiguration {
 
     private final JwtRequestFilter jwtRequestFilter;
+    private final InvestmentRateLimitFilter investmentRateLimitFilter;
+
 
     @Bean
     public PasswordEncoder passwordEncoder(){
@@ -56,6 +60,10 @@ public class SecurityConfiguration {
                         .anyRequest().authenticated()); //everything else is authenticated
 
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+
+        //to filter incoming requests
+        http.addFilterAfter(investmentRateLimitFilter, JwtRequestFilter.class);
+
         return http.build();
     }
 
@@ -86,6 +94,16 @@ public class SecurityConfiguration {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception{
         return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    @Bean
+    //to disable automatic servlet-filter registration while allowing Spring Security to use filter
+    public FilterRegistrationBean<InvestmentRateLimitFilter> investmentRateLimitRegistration(
+            InvestmentRateLimitFilter filter) {
+
+        FilterRegistrationBean<InvestmentRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
 
