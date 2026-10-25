@@ -17,6 +17,7 @@ public class RateLimitServiceTest {
     }
 
     @Test
+    //to test 5 investment request, the 6th should be rejected
     void shouldAllowFiveRequestsAndRejectSixth() {
         String email = "test@example.com";
         String endpoint = "/portfolio/buy";
@@ -28,6 +29,26 @@ public class RateLimitServiceTest {
 
         //sixth request should be rejected
         assertFalse(rateLimitService.allowInvestmentRequest(email, endpoint));
+
+    }
+
+
+    @Test
+    //to track different user investment requests
+    void shouldTrackUsersSeparately() {
+        String email1 = "test1@example.com";
+        String email2 = "test2@example.com";
+        String endpoint = "/portfolio/buy";
+
+        //first 5 requests should be allowed
+        for (int i = 0; i < 5; i++) {
+            assertTrue(rateLimitService.allowInvestmentRequest(email1, endpoint));
+            assertTrue(rateLimitService.allowInvestmentRequest(email2, endpoint));
+        }
+
+        //sixth request should be rejected
+        assertFalse(rateLimitService.allowInvestmentRequest(email1, endpoint));
+        assertFalse(rateLimitService.allowInvestmentRequest(email2, endpoint));
 
     }
 }
