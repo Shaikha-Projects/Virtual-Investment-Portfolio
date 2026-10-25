@@ -1,10 +1,9 @@
 # Virtual Investment Portfolio System
 
 ## Project Description
-
 The Virtual Investment Portfolio System is a secure REST API built using Java and Spring Boot. It allows users to simulate investment activities using virtual money without involving real financial transactions.
 After registration and email verification, users receive a virtual starting balance of $100,000. Users can browse available assets, buy and sell assets, manage their holdings and watchlist, view their transaction history, and monitor their portfolio performance.
-The system also provides administrative functionality for managing assets and user accounts. Security is implemented using JWT authentication and role-based authorization for USER and ADMIN roles.
+The system also provides administrative functionality for managing assets and user accounts. Project 3 extends the platform with BUY/SELL limit orders, concurrent market price simulation, asynchronous notifications, database concurrency protection, investment API rate limiting, and expanded audit logging. Security uses JWT authentication and role-based authorization for USER and ADMIN roles.
 
 ### Application Purpose
 
@@ -26,7 +25,15 @@ The purpose of this application is to provide a safe environment where users can
 - Admin asset management
 - Admin user deactivation using soft delete
 - Real-time investment notifications using Server-Sent Events (SSE)
-- Rate limiting for login attempts
+- Rate limiting for login and password-reset requests
+- Per-user, per-endpoint rate limiting for investment operations (5 requests per minute)
+- Place, view, and cancel BUY/SELL limit orders
+- Automatic execution of pending limit orders when market prices meet their conditions
+- Simulated market price updates and recorded price history
+- Concurrent order execution and market updates using separate managed thread pools
+- Asynchronous SSE notifications after successful transaction commits
+- Transactional audit logs for order placement, cancellation, and execution
+- Database concurrency protection using pessimistic locking
 - Audit logging for important system actions
 - Swagger/OpenAPI API documentation
 
