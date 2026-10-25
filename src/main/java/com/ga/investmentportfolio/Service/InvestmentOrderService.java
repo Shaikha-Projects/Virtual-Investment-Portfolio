@@ -1,9 +1,9 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.CreateOrderRequest;
-import com.ga.investmentportfolio.DTO.Response.AssetResponse;
 import com.ga.investmentportfolio.DTO.Response.InvestmentOrderResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
+import com.ga.investmentportfolio.Enums.AuditAction;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
@@ -25,9 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,6 +41,7 @@ public class InvestmentOrderService {
     private final OrderExecutionService orderExecutionService;
     private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditLogService auditLogService;
 
 
     //track orders that have been submitted to thread pool but haven't finished processing
@@ -123,6 +122,10 @@ public class InvestmentOrderService {
         //save investment order
         investmentOrderRepository.save(order);
 
+        //add an audit record
+        auditLogService.log(user.getEmailAddress(), AuditAction.PLACE_LIMIT_ORDER,
+                "Placed " + order.getOrderType() + " limit order #" + order.getId()
+                        + " for " + order.getQuantity() + " shares of " + order.getAsset().getSymbol());
 
     }
 
@@ -212,6 +215,12 @@ public class InvestmentOrderService {
         //change status to CANCELLED
         order.setStatus(OrderStatus.CANCELLED);
         investmentOrderRepository.save(order);
+
+        //save cancellation audit log
+        auditLogService.log(order.getPortfolio().getUser().getEmailAddress(), AuditAction.CANCEL_LIMIT_ORDER,
+                "Cancelled limit order #" + order.getId()
+                        + " for " + order.getQuantity() + " shares of " + order.getAsset().getSymbol()
+        );
 
         //publish notification
         eventPublisher.publishEvent( new InvestmentNotificationEvent(
