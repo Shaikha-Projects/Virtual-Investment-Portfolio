@@ -199,6 +199,21 @@ For example, if two BUY operations attempt to use the same portfolio balance sim
 
 This prevents both operations from spending the same available funds.
 
+### 2. Transaction Management
+
+The application uses Spring's `@Transactional` annotation to maintain database consistency.
+
+A financial operation may update several database records, including:
+
+- Portfolio
+- Holding
+- Transaction
+- Investment Order
+- Audit Log
+
+Transaction management ensures that related changes are committed together.
+
+If an operation fails, its database changes are rolled back.
 
 ## User Stories
 
