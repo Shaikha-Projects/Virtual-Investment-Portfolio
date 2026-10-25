@@ -293,6 +293,48 @@ Rate-limit buckets are currently stored in application memory, meaning they are 
 
 Bucket4j uses interval-based token refilling rather than an exact sliding-window request counter.
 
+## Real-Time Notifications
+
+The application provides real-time investment notifications using Server-Sent Events (SSE).
+
+Notifications are generated for important investment actions, including:
+
+- Successful direct BUY operations
+- Successful direct SELL operations
+- Executed BUY limit orders
+- Executed SELL limit orders
+- Cancelled limit orders
+
+The notification system uses application events and asynchronous processing.
+
+Notifications are delivered after successful transaction commits.
+
+Notification delivery is best-effort. Messages may not be delivered when a user is disconnected or the notification thread pool is saturated.
+
+Rejected notification tasks are logged, but notifications are not currently stored for automatic retry.
+
+Financial transactions remain committed even if a notification cannot be delivered.
+
+## Audit Logging
+
+The application maintains audit logs for important system operations.
+
+Each audit log records:
+
+- User email
+- Action performed
+- Action details
+- Creation timestamp
+
+Project 3 extends the audit actions with:
+
+- `PLACE_LIMIT_ORDER`
+- `CANCEL_LIMIT_ORDER`
+- `EXECUTE_LIMIT_ORDER`
+
+Audit logs for these operations are stored within the corresponding database transactions.
+
+If an operation fails and its transaction is rolled back, the related success audit log is also rolled back.
 
 
 
