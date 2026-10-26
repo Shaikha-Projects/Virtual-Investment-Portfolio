@@ -39,7 +39,7 @@ public class AdminAuditLogController {
             @ApiResponse(responseCode = "401", description = "Authentication required"),
             @ApiResponse(responseCode = "403", description = "Access denied. Admin role required")
     })
-    public ResponseEntity<List<AuditLog>> getAuditLogs( @RequestParam(defaultValue = "0") @Min(0) int page,
+    public ResponseEntity<Page<AuditLog>> getAuditLogs( @RequestParam(defaultValue = "0") @Min(0) int page,
                                                         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         Page<AuditLog> logs = auditLogService.getAllLogs(page, size);
         return ResponseEntity.ok(logs);

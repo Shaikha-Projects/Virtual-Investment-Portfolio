@@ -5,6 +5,8 @@ import com.ga.investmentportfolio.Model.Holding;
 import com.ga.investmentportfolio.Model.InvestmentOrder;
 import com.ga.investmentportfolio.Model.Portfolio;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +28,6 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM InvestmentOrder o WHERE o.id = :orderId")
     Optional<InvestmentOrder> findByIdForUpdate(@Param("orderId") Long orderId);
+
+    Page<InvestmentOrder> findByPortfolioUserEmailAddressOrderByCreatedAtDesc(String email, Pageable pageable);
 }
