@@ -370,7 +370,7 @@ The ERD shows the database entities, their attributes, and the relationships bet
 
 [View ERD on dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646)
 
-<img width="1836" height="1235" alt="Investment Portfolio ERD" src="https://github.com/user-attachments/assets/76c213a6-0028-4df7-b22e-b66f3e09794c" />
+<img width="1809" height="1251" alt="image" src="https://github.com/user-attachments/assets/1269894a-385f-4d82-bef8-1a68eef31c64" />
 
 ## Planning
 
