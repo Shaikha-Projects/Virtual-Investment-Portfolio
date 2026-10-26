@@ -11,7 +11,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -48,9 +51,11 @@ public class InvestmentOrderController {
             @ApiResponse(responseCode = "401", description = "Authentication required"),
             @ApiResponse(responseCode = "404", description = "User or portfolio not found")
     })
-    public ResponseEntity<List<InvestmentOrderResponse>> viewOrders(Authentication authentication){
+    public ResponseEntity<Page<InvestmentOrderResponse>> viewOrders(Authentication authentication,
+                                                                    @RequestParam(defaultValue = "0") @Min(0) int page,
+                                                                    @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size){
         String email = authentication.getName();
-        List<InvestmentOrderResponse> orders = investmentOrderService.getMyOrders(email);
+        Page<InvestmentOrderResponse> orders = investmentOrderService.getMyOrders(email, page, size);
         return ResponseEntity.ok(orders);
     }
 
