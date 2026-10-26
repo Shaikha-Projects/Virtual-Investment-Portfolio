@@ -6,6 +6,8 @@ import com.ga.investmentportfolio.Repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuditLogService {
@@ -22,5 +24,10 @@ public class AuditLogService {
 
         //save audit log
         auditLogRepository.save(auditLog);
+    }
+
+    //method to get all audit logs
+    public List<AuditLog> getAllLogs(){
+        return auditLogRepository.findAllByOrderByCreatedAtDesc();
     }
 }
