@@ -32,10 +32,15 @@ test('asset lookup uses existing symbols or an explicit ID fallback', () => {
   assert.equal(orderAssetLabel({ assetId: 42 }), 'Asset #42')
 })
 
-test('GET orders preserves the server order and actual response fields', async t => {
+test('GET orders preserves paginated metadata, server ordering and bearer authentication', async t => {
   const rows = [{ id: 8, assetId: 42, orderType: 'BUY', status: 'PENDING' }, { id: 3, assetId: 42, orderType: 'SELL', status: 'FILLED' }]
-  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(rows)))
-  assert.deepEqual(await createApi({ token: 'test-token' })('/orders'), rows)
+  const page = { content: rows, totalElements: 12, totalPages: 2, number: 1, size: 10, first: false, last: true }
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(new URL(url).search, '?page=1&size=10')
+    assert.equal(options.headers.get('Authorization'), 'Bearer test-token')
+    return new Response(JSON.stringify(page))
+  })
+  assert.deepEqual(await createApi({ token: 'test-token' })('/orders?page=1&size=10'), page)
 })
 
 test('create and cancel use bearer JWTs and accept verified plain-text success responses', async t => {

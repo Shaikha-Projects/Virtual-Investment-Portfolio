@@ -19,13 +19,15 @@ export function AdminDashboard({ api, revision, navigate, refresh, user }) {
 }
 
 export function AdminAuditLogs({ api, revision }) {
-  const resource = useResource(api, '/admin/audit-logs', revision)
+  const [page, setPage] = useState(0)
+  const resource = useResource(api, `/admin/audit-logs?${query({ page, size: 10 })}`, revision)
+  const data = resource.data
   return <section className="card">
     <div className="page-heading"><div><span className="eyebrow">Administration / Activity</span><h2>Audit Logs</h2><p className="muted">A read-only record of system activity, newest first.</p></div><span className="icon-tile"><Icon name="clock" /></span></div>
-    <Resource resource={resource} empty={!resource.data?.length} emptyText="No audit logs yet.">
+    <Resource resource={resource} empty={!data?.content?.length} emptyText={data?.totalElements ? 'No audit logs on this page. Use Previous to view earlier pages.' : 'No audit logs yet.'}>
       <Table label="Admin audit logs">
         <thead><tr>{['Date & Time', 'User Email', 'Action', 'Details'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
-        <tbody>{resource.data?.map(entry => <tr key={entry.id}>
+        <tbody>{data?.content?.map(entry => <tr key={entry.id}>
           <td><time dateTime={entry.createdAt}>{date(entry.createdAt)}</time></td>
           <td>{entry.userEmail}</td>
           <td><span className="badge">{entry.action}</span></td>
@@ -33,6 +35,7 @@ export function AdminAuditLogs({ api, revision }) {
         </tr>)}</tbody>
       </Table>
     </Resource>
+    {!resource.error && <Pager page={data?.number ?? page} totalPages={data?.totalPages} totalElements={data?.totalElements} disabled={resource.loading || data?.totalPages === 0} onChange={setPage} />}
   </section>
 }
 

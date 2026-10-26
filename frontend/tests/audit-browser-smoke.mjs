@@ -58,13 +58,16 @@ const fixture = `(() => {
     const target = new URL(url, location.href)
     if (target.origin === location.origin) return originalFetch(url, options)
     const data = read(), path = target.pathname
-    data.calls.push({ path, method: options.method || 'GET', bearer: new Headers(options.headers).get('Authorization') }); write(data)
+    data.calls.push({ path, page: target.searchParams.get('page'), size: target.searchParams.get('size'), method: options.method || 'GET', bearer: new Headers(options.headers).get('Authorization') }); write(data)
     if (path === '/auth/login') return json({ token: 'synthetic-audit-' + data.role })
     if (path === '/auth/me') return json({ emailAddress: 'admin@example.test', role: data.role })
     if (path === '/admin/audit-logs') {
-      if (data.mode === 'loading') return new Promise(resolve => { window.__auditRelease = () => resolve(json(logs)) })
       if (data.mode === 'error') return json({ message: 'Internal database details must stay hidden' }, 500)
-      return json(data.mode === 'empty' ? [] : logs)
+      const rows = data.mode === 'empty' ? [] : data.mode === 'paged' ? Array.from({ length: 25 }, (_, index) => ({ ...logs[0], id: 100 - index, userEmail: 'audit-' + (100 - index) + '@example.test' })) : logs
+      const page = Number(target.searchParams.get('page') || 0), size = Number(target.searchParams.get('size') || 10), totalPages = Math.ceil(rows.length / size)
+      const result = { content: rows.slice(page * size, (page + 1) * size), totalElements: rows.length, totalPages, number: page, size, first: page === 0, last: page + 1 >= totalPages }
+      if (data.mode === 'loading' || data.delayAudit) return new Promise(resolve => { window.__auditRelease = () => resolve(json(result)) })
+      return json(result)
     }
     if (path === '/admin/assets') return json([{ assetId: 1, symbol: 'AAPL', name: 'Apple', assetType: 'STOCK', currentPrice: 100, assetStatus: 'ACTIVE' }])
     if (path === '/admin/users') return json({ content: [{ id: 1, firstName: 'Current', lastName: 'Admin', emailAddress: 'admin@example.test', role: 'ADMIN', status: 'ACTIVE' }], totalElements: 1, totalPages: 1 })
@@ -100,16 +103,41 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('tbody button, tbody input, tbody select').length`), 0)
   const auditCalls = await evaluate(`JSON.parse(sessionStorage.__auditFixture).calls.filter(call => call.path === '/admin/audit-logs')`)
   assert.ok(auditCalls.length > 0)
-  assert.ok(auditCalls.every(call => call.method === 'GET' && call.bearer === 'Bearer synthetic-audit-ADMIN'))
+  assert.ok(auditCalls.every(call => call.method === 'GET' && call.page === '0' && call.size === '10' && call.bearer === 'Bearer synthetic-audit-ADMIN'))
 
   await click('Asset Management'); await header('Asset Management'); await wait(`document.body.innerText.includes('Apple')`)
   await setState({ mode: 'empty' }); await click('Audit Logs'); await wait(`document.body.innerText.includes('No audit logs yet.')`)
   assert.equal(await evaluate(`Boolean(document.querySelector('#main-content table'))`), false)
+  assert.equal(await evaluate(`[...document.querySelectorAll('.pager button')].every(button => button.disabled)`), true)
   await click('User Management'); await header('User Management'); await wait(`document.body.innerText.includes('Current Admin')`)
   await setState({ mode: 'error' }); await click('Audit Logs'); await wait(`Boolean(document.querySelector('#main-content [role=alert]'))`)
   assert.match(await evaluate(`document.querySelector('#main-content [role=alert]').textContent`), /temporarily unavailable/)
   assert.equal(await evaluate(`document.body.innerText.includes('Internal database details')`), false)
   await setState({ mode: 'success' }); await click('Try again'); await wait(`document.querySelectorAll('tbody tr').length === 2`)
+
+  // Same shared Pager as Transactions: 10 rows per page, server metadata, and no mutations.
+  await setState({ mode: 'paged' }); await click('User Management'); await header('User Management'); await click('Audit Logs')
+  await wait(`document.querySelector('.pager')?.textContent.includes('Page 1 of 3') && document.querySelectorAll('tbody tr').length === 10`)
+  assert.ok(await evaluate(`document.querySelector('.pager').textContent.includes('25 total')`))
+  assert.equal(await evaluate(`document.querySelector('tbody tr').cells[1].textContent`), 'audit-100@example.test')
+  assert.equal(await evaluate(`[...document.querySelectorAll('.pager button')].find(button => button.textContent === 'Previous').disabled`), true)
+  await setState({ delayAudit: true }); await click('Next')
+  await wait(`Boolean(document.querySelector('.loading-spinner'))`)
+  assert.equal(await evaluate(`[...document.querySelectorAll('.pager button')].every(button => button.disabled)`), true)
+  await setState({ delayAudit: false }); await evaluate('window.__auditRelease()')
+  await wait(`document.querySelector('.pager')?.textContent.includes('Page 2 of 3') && document.querySelectorAll('tbody tr').length === 10`)
+  assert.equal(await evaluate(`document.querySelector('tbody tr').cells[1].textContent`), 'audit-90@example.test')
+  await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
+  await click('Next'); await wait(`document.querySelector('.pager')?.textContent.includes('Page 3 of 3') && document.querySelectorAll('tbody tr').length === 5`)
+  assert.equal(await evaluate(`[...document.querySelectorAll('.pager button')].find(button => button.textContent === 'Next').disabled`), true)
+  await click('Previous'); await wait(`document.querySelector('.pager')?.textContent.includes('Page 2 of 3')`)
+  assert.equal(await evaluate('document.documentElement.scrollWidth'), 375)
+  const pagedCalls = await evaluate(`JSON.parse(sessionStorage.__auditFixture).calls.filter(call => call.path === '/admin/audit-logs')`)
+  assert.ok(pagedCalls.some(call => call.page === '1') && pagedCalls.some(call => call.page === '2'))
+  assert.ok(pagedCalls.every(call => call.size === '10' && call.method === 'GET' && call.bearer === 'Bearer synthetic-audit-ADMIN'))
+  await send('Emulation.clearDeviceMetricsOverride')
+  await setState({ mode: 'success' }); await click('User Management'); await header('User Management'); await click('Audit Logs')
+  await wait(`document.querySelectorAll('tbody tr').length === 2 && document.querySelector('.pager')?.textContent.includes('Page 1 of 1')`)
 
   // Shared responsive wrapper keeps the table scrollable inside the existing card.
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
@@ -126,7 +154,7 @@ try {
   assert.equal(await evaluate(`Boolean(document.querySelector('nav button[aria-label="Audit Logs"]'))`), false)
   assert.equal(await evaluate(`JSON.parse(sessionStorage.__auditFixture).calls.some(call => call.path === '/admin/audit-logs')`), false)
   assert.deepEqual(exceptions, [])
-  console.log('PASS: Audit Logs uses JWT GET requests, preserves backend order, formats dates, remains read-only, handles loading/error/retry/empty states, matches shared card/table styles, supports mobile navigation and scrolling, and is absent for investors. Existing asset/user sections render. Mock API only.')
+  console.log('PASS: Audit Logs has 10/10/5-row pagination, zero-based JWT GET requests, correct totals and boundary/loading/empty controls, preserved backend ordering, formatted dates, error/retry states, mobile paging/scrolling and ADMIN-only access. Existing asset/user sections render. Mock API only.')
 } finally {
   if (fixtureId) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: fixtureId })
   await send('Emulation.clearDeviceMetricsOverride')
