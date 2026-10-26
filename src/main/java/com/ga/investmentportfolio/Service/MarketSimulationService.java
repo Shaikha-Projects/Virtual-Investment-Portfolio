@@ -40,7 +40,7 @@ public class MarketSimulationService {
     private final ThreadPoolTaskExecutor marketExecutor;
 
     //scheduled method to automatically update asset prices every 10s
-    @Scheduled(fixedDelay = 10000)
+    @Scheduled(fixedDelay = 10000) //update asset price every 10s
     public void updateMarketPrices() {
         //retrieve active assets
         List<Asset> assets = assetRepository.findByAssetStatus(AssetStatus.ACTIVE);
