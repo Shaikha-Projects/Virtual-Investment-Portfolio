@@ -588,10 +588,12 @@ If more development time were available, the application could be extended with 
 - Integration with a real-time market data API to provide live asset prices.
 - Additional asset types such as ETFs, cryptocurrencies, and bonds.
 - More detailed portfolio analytics, charts, and historical performance tracking.
-- More advanced transaction status workflows for pending or scheduled investment orders.
+- More advanced order types and execution strategies beyond the current BUY/SELL limit-order workflow.
 - Additional automated tests and integration tests to increase test coverage.
 - Deployment to a cloud platform with a production PostgreSQL database.
-- Enhanced real-time notifications for portfolio and asset price changes.
+- Durable notification storage and retry for disconnected users or saturated notification workers.
+- Shared or distributed rate limiting for multiple application instances.
+- Additional concurrent REST request tests through the full Spring Security and JWT chain.
 - Additional administrative reporting and monitoring features.
 
 ## Credits & External Resources
