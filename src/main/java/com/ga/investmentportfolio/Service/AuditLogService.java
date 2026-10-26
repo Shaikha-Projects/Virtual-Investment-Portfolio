@@ -4,6 +4,9 @@ import com.ga.investmentportfolio.Enums.AuditAction;
 import com.ga.investmentportfolio.Model.AuditLog;
 import com.ga.investmentportfolio.Repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,7 +30,8 @@ public class AuditLogService {
     }
 
     //method to get all audit logs
-    public List<AuditLog> getAllLogs(){
-        return auditLogRepository.findAllByOrderByCreatedAtDesc();
+    public Page<AuditLog> getAllLogs(int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
     }
 }
