@@ -5,7 +5,8 @@ import { sectionFor, validateIdentity, workspaceFor } from '../src/auth/roles.js
 test('admin workspace contains only administration pages and shared profile', () => {
   const workspace = workspaceFor('ADMIN')
   assert.equal(workspace.home, 'admin')
-  assert.deepEqual(workspace.navigation.map(([section]) => section), ['admin', 'admin-assets', 'admin-users', 'profile'])
+  assert.deepEqual(workspace.navigation.map(([section]) => section), ['admin', 'admin-assets', 'admin-users', 'admin-audit-logs', 'profile'])
+  assert.equal(sectionFor('ADMIN', 'admin-audit-logs'), 'admin-audit-logs')
   assert.equal(workspace.investmentNotifications, false)
   for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist']) {
     assert.equal(sectionFor('ADMIN', section), 'admin')
@@ -18,7 +19,7 @@ test('investor workspace contains no administration pages', () => {
   assert.equal(workspace.home, 'dashboard')
   assert.deepEqual(workspace.navigation.map(([section]) => section), ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist', 'profile'])
   assert.equal(workspace.investmentNotifications, true)
-  for (const section of ['admin', 'admin-assets', 'admin-users']) assert.equal(sectionFor('USER', section), 'dashboard')
+  for (const section of ['admin', 'admin-assets', 'admin-users', 'admin-audit-logs']) assert.equal(sectionFor('USER', section), 'dashboard')
   assert.equal(sectionFor('USER', 'profile'), 'profile')
 })
 

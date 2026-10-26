@@ -8,6 +8,7 @@ const workspaces = {
       ['admin', 'Admin Dashboard', 'shield'],
       ['admin-assets', 'Asset Management', 'assets'],
       ['admin-users', 'User Management', 'users'],
+      ['admin-audit-logs', 'Audit Logs', 'clock'],
       profile,
     ],
     investmentNotifications: false,

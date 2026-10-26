@@ -4,7 +4,7 @@ import MarketPage from '../pages/MarketPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProfilePage from '../pages/ProfilePage'
 import OrdersPage from '../pages/OrdersPage'
-import { AdminDashboard, AdminAssets, AdminUsers } from '../pages/AdminPages'
+import { AdminDashboard, AdminAssets, AdminUsers, AdminAuditLogs } from '../pages/AdminPages'
 import Notifications from './Notifications'
 import Icon from './Icon'
 import { useResource } from '../hooks/useResource'
@@ -57,7 +57,7 @@ export default function PortfolioShell({ session }) {
   }, [mobileOpen])
   const shared = { api: session.api, revision, refresh, navigate }
   const pages = admin
-    ? { admin: AdminDashboard, 'admin-assets': AdminAssets, 'admin-users': AdminUsers, profile: ProfilePage }
+    ? { admin: AdminDashboard, 'admin-assets': AdminAssets, 'admin-users': AdminUsers, 'admin-audit-logs': AdminAuditLogs, profile: ProfilePage }
     : { dashboard: DashboardPage, assets: MarketPage, holdings: Holdings, transactions: Transactions, orders: OrdersPage, watchlist: Watchlist, profile: ProfilePage }
   const Page = workspace ? pages[section] : null
   const currentLabel = workspace?.navigation.find(([value]) => value === section)?.[1]

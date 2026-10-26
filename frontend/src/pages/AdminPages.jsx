@@ -1,6 +1,6 @@
 import Icon from '../components/Icon'
 import ExecutePendingOrders from '../components/ExecutePendingOrders'
-import { money } from '../api/format'
+import { date, money } from '../api/format'
 import { useAction } from '../hooks/useAction'
 import { useState } from 'react'
 import { query } from '../api/client'
@@ -15,6 +15,24 @@ export function AdminDashboard({ api, revision, navigate, refresh, user }) {
     <div className="admin-kpis"><Resource resource={assets}><div className="summary-cards">{[['All assets', assets.data?.length, 'assets'], ['Active assets', assets.data?.filter(asset => asset.assetStatus === 'ACTIVE').length, 'check'], ['Inactive assets', assets.data?.filter(asset => asset.assetStatus === 'INACTIVE').length, 'clock']].map(([label, value, icon]) => <article className="summary-card kpi-card" key={label}><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={icon} size={18} /></span></div><h3>{value}</h3><p>Current asset catalog</p></article>)}</div></Resource><Resource resource={users}><article className="summary-card kpi-card"><div className="kpi-heading"><span>Registered users</span><span className="icon-tile"><Icon name="users" size={18} /></span></div><h3>{users.data?.totalElements}</h3><p>All registered accounts</p></article></Resource></div>
     <div className="analytics-grid admin-management"><article className="card"><div className="panel-heading"><span className="icon-tile"><Icon name="assets" /></span><span className="badge">Asset catalog</span></div><h3>Investment opportunities</h3><p className="muted">Create and maintain assets, update prices, and manage availability for investors.</p><button className="secondary" onClick={() => navigate('admin-assets')}>Manage assets <Icon name="arrow" size={17} /></button></article><article className="card"><div className="panel-heading"><span className="icon-tile"><Icon name="users" /></span><span className="badge">Account access</span></div><h3>Your investor community</h3><p className="muted">Review registered accounts and safely manage activation and deactivation.</p><button className="secondary" onClick={() => navigate('admin-users')}>Manage users <Icon name="arrow" size={17} /></button></article></div>
     <ExecutePendingOrders api={api} refresh={refresh} role={user?.role} />
+  </section>
+}
+
+export function AdminAuditLogs({ api, revision }) {
+  const resource = useResource(api, '/admin/audit-logs', revision)
+  return <section className="card">
+    <div className="page-heading"><div><span className="eyebrow">Administration / Activity</span><h2>Audit Logs</h2><p className="muted">A read-only record of system activity, newest first.</p></div><span className="icon-tile"><Icon name="clock" /></span></div>
+    <Resource resource={resource} empty={!resource.data?.length} emptyText="No audit logs yet.">
+      <Table label="Admin audit logs">
+        <thead><tr>{['Date & Time', 'User Email', 'Action', 'Details'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+        <tbody>{resource.data?.map(entry => <tr key={entry.id}>
+          <td><time dateTime={entry.createdAt}>{date(entry.createdAt)}</time></td>
+          <td>{entry.userEmail}</td>
+          <td><span className="badge">{entry.action}</span></td>
+          <td>{entry.details || '—'}</td>
+        </tr>)}</tbody>
+      </Table>
+    </Resource>
   </section>
 }
 

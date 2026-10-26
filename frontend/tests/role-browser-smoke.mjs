@@ -130,7 +130,7 @@ try {
   await wait(`document.body.innerText.includes('Welcome back')`)
 
   await login('ADMIN'); await header('Admin Dashboard')
-  assert.deepEqual(await navigation(), ['Admin Dashboard', 'Asset Management', 'User Management', 'Profile'])
+  assert.deepEqual(await navigation(), ['Admin Dashboard', 'Asset Management', 'User Management', 'Audit Logs', 'Profile'])
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), false)
   for (const section of ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'watchlist']) { await forceSection(section); await header('Admin Dashboard') }
   assert.equal((await apiCalls()).some(call => call.path.startsWith('/portfolio') || call.path === '/assets' || call.path === '/notifications/subscribe'), false)
@@ -151,7 +151,7 @@ try {
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), true)
   await evaluate('window.__releaseProfile()')
   assert.equal(await evaluate(`document.body.innerText.includes('Previous account data')`), false)
-  for (const section of ['admin', 'admin-assets', 'admin-users']) { await forceSection(section); await header('Dashboard') }
+  for (const section of ['admin', 'admin-assets', 'admin-users', 'admin-audit-logs']) { await forceSection(section); await header('Dashboard') }
   await click('Profile'); await wait(`document.body.innerText.includes('USER Profile')`)
   assert.equal(await evaluate(`document.body.innerText.includes('ADMIN Profile')`), false)
   await reload(); await header('Dashboard')
