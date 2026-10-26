@@ -20,6 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -139,23 +142,22 @@ public class InvestmentOrderService {
     }
 
     //method to get all investment orders
-    public List<InvestmentOrderResponse> getMyOrders(String email){
+    public Page<InvestmentOrderResponse> getMyOrders(String email, int page, int size){
         //find user by email
         User user = userRepository.findByEmailAddress(email)
                 .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
 
-        //get user portfolio
-        Portfolio portfolio = user.getPortfolio();
-
         //get user's orders
-        List<InvestmentOrder> investmentOrders = investmentOrderRepository.findByPortfolioOrderByCreatedAtDesc(portfolio);
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<InvestmentOrder> investmentOrders = investmentOrderRepository.findByPortfolioUserEmailAddressOrderByCreatedAtDesc(email, pageable);
 
         //return investmentOrders using InvestmentOrderResponse stream/map
-        return investmentOrders.stream().map(investmentOrder -> new InvestmentOrderResponse(investmentOrder.getId(),
+        return investmentOrders.map(investmentOrder -> new InvestmentOrderResponse(investmentOrder.getId(),
                         investmentOrder.getAsset().getId(), investmentOrder.getOrderType(),
                         investmentOrder.getQuantity(), investmentOrder.getLimitPrice(),
                         investmentOrder.getStatus(), investmentOrder.getCreatedAt(),
-                        investmentOrder.getExecutedAt())).toList();
+                        investmentOrder.getExecutedAt()));
 
     }
 
