@@ -5,6 +5,7 @@ import com.ga.investmentportfolio.DTO.Response.LoginResponse;
 import com.ga.investmentportfolio.DTO.Response.RegisterResponse;
 import com.ga.investmentportfolio.Enums.Role;
 import com.ga.investmentportfolio.Enums.UserStatus;
+import com.ga.investmentportfolio.Event.WelcomeEmailEvent;
 import com.ga.investmentportfolio.Exception.*;
 import com.ga.investmentportfolio.Model.EmailVerificationToken;
 import com.ga.investmentportfolio.Model.PasswordResetToken;
@@ -16,7 +17,9 @@ import com.ga.investmentportfolio.Repository.PortfolioRepository;
 import com.ga.investmentportfolio.Repository.UserRepository;
 import com.ga.investmentportfolio.Security.JWTUtils;
 import com.ga.investmentportfolio.Security.MyUserDetails;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -38,6 +41,7 @@ public class AuthService {
     private final JWTUtils jwtUtils;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private static final Logger log = LoggerFactory.getLogger(AuthService.class); //to write logs
+    private final ApplicationEventPublisher eventPublisher;
 
     public RegisterResponse register(RegisterRequest request){
         //if email already exists throw an exception
@@ -89,6 +93,7 @@ public class AuthService {
         return registerResponse;
     }
 
+    @Transactional
     public void verifyEmail(String token) {
         EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
                 .orElseThrow(() -> new InformationNotFoundException("Verification token not found"));
@@ -114,6 +119,9 @@ public class AuthService {
         portfolio.setUser(user);
         portfolio.setCashBalance(new BigDecimal("100000.00"));
         portfolioRepository.save(portfolio);
+
+        //publish welcome email event
+        eventPublisher.publishEvent(new WelcomeEmailEvent(user.getEmailAddress()));
 
     }
 

@@ -158,4 +158,70 @@ public class EmailService {
         }
 
     }
+
+    // Send welcome email after successful verification
+    public void sendWelcomeEmail(String emailAddress) {
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(emailAddress);
+            helper.setSubject("Welcome to Virtual Investment Portfolio!");
+
+            String emailBody = """
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 30px;">
+
+            <div style="background-color: white; padding: 30px;
+                        border-radius: 10px; max-width: 500px; margin: auto;">
+
+                <h2 style="color: #1e3a5f;">
+                    Virtual Investment Portfolio
+                </h2>
+
+                <h3>Welcome to Your Investment Journey!</h3>
+
+                <p>Your email has been successfully verified, and your account is now active.</p>
+
+                <p>You can now explore investment assets, buy and sell shares,
+                   and manage your virtual investment portfolio.</p>
+
+                <div style="background-color: #eef3f9; padding: 20px;
+                            border-radius: 8px; text-align: center;">
+
+                    <p style="color: #555;">Your Starting Virtual Balance</p>
+
+                    <h2 style="color: #1e3a5f;">$100,000.00</h2>
+
+                </div>
+
+                <p style="margin-top: 25px;">
+                    Start exploring the market and building your portfolio!
+                </p>
+
+                <hr>
+
+                <p style="font-size: 11px; color: #999;">
+                    Virtual Investment Portfolio System<br>
+                    Investment simulation only. No real money is involved.
+                </p>
+
+            </div>
+
+        </body>
+        </html>
+        """;
+
+            //set HTML email body
+            helper.setText(emailBody, true);
+
+            //send welcome email
+            javaMailSender.send(message);
+
+        } catch (MessagingException e) {
+            throw new MailSendException("Failed to prepare welcome email", e);
+        }
+
+    }
 }
