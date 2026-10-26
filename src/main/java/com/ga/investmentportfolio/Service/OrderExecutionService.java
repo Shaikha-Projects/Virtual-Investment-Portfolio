@@ -39,6 +39,9 @@ public class OrderExecutionService {
     //method to execute each order in its transaction
     @Transactional
     public void executeSingleOrder(Long orderId) {
+        // add log for testing
+        log.info("Starting order execution - orderId: {}, thread: {}", orderId, Thread.currentThread().getName());
+
         //retrieve order
         InvestmentOrder lockedOrder = investmentOrderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new InformationNotFoundException("Order not found"));
