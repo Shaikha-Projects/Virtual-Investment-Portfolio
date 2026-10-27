@@ -44,7 +44,7 @@ public class InvestmentOrderService {
     private final HoldingRepository holdingRepository;
     private final TradeExecutionService tradeExecutionService;
     private final OrderExecutionService orderExecutionService;
-    private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
+    //private static final Logger log = LoggerFactory.getLogger(InvestmentOrderService.class);
     private final ApplicationEventPublisher eventPublisher;
     private final AuditLogService auditLogService;
 
