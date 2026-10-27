@@ -9,7 +9,7 @@ const safeMessages = new Set([
   'Email address has already been verified', 'Verification token has expired', 'Reset Password token has expired',
   'Asset is not available for trading', 'Insufficient available cash for this order',
   'You do not own this asset', 'Insufficient available shares for this order',
-  'You cannot cancel this order', 'Only pending orders can be cancelled', 'Insufficient reserved shares',
+  'You cannot cancel this order', 'Only pending orders can be cancelled', 'Insufficient reserved shares', 'Insufficient available funds',
 ])
 const messages = {
   400: 'Please check your information and try again.', 401: 'Please log in again to continue.',
