@@ -4,6 +4,7 @@ import com.ga.investmentportfolio.DTO.Request.*;
 import com.ga.investmentportfolio.DTO.Response.*;
 import com.ga.investmentportfolio.Enums.*;
 import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
+import com.ga.investmentportfolio.Event.TransactionEmailEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationExistException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
@@ -229,6 +230,11 @@ public class AssetService {
                 )
         );
 
+        //send BUY confirmation email
+        eventPublisher.publishEvent(
+                new TransactionEmailEvent(email, "BUY", asset.getSymbol(), savedTransaction.getQuantity(), savedTransaction.getTotalAmount())
+        );
+
         return new TransactionResponse(
                 savedTransaction.getId(),
                 savedTransaction.getTransactionType(),
@@ -326,6 +332,12 @@ public class AssetService {
                 new InvestmentNotificationEvent(
                         email, "Sale completed: " + request.getQuantity() + " shares of " + asset.getSymbol()
                 )
+        );
+
+        //send SELL confirmation email
+        eventPublisher.publishEvent(
+                new TransactionEmailEvent(email, "SELL" +
+                        "", asset.getSymbol(), savedTransaction.getQuantity(), savedTransaction.getTotalAmount())
         );
 
         return new TransactionResponse(
