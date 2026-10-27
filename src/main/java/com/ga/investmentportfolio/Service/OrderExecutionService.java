@@ -4,6 +4,7 @@ import com.ga.investmentportfolio.Enums.AuditAction;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
+import com.ga.investmentportfolio.Event.TransactionEmailEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.Holding;
@@ -101,8 +102,14 @@ public class OrderExecutionService {
             //publish notification
             eventPublisher.publishEvent( new InvestmentNotificationEvent(
                             lockedOrder.getPortfolio().getUser().getEmailAddress(),
-                            "Limit BUY order executed: " + lockedOrder.getQuantity()
-                                    + " shares of " + lockedOrder.getAsset().getSymbol())
+                            "Limit BUY order executed: " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol())
+            );
+
+            //send confirmation email for executed BUY limit order
+            eventPublisher.publishEvent(
+                    new TransactionEmailEvent(
+                            lockedOrder.getPortfolio().getUser().getEmailAddress(), "BUY", lockedOrder.getAsset().getSymbol(), lockedOrder.getQuantity(), actualCost
+                    )
             );
 
             //add log
@@ -161,6 +168,13 @@ public class OrderExecutionService {
                     lockedOrder.getPortfolio().getUser().getEmailAddress(),
                     "Limit SELL order executed: " + lockedOrder.getQuantity()
                             + " shares of " + lockedOrder.getAsset().getSymbol())
+            );
+
+            //send confirmation email for executed SELL limit order
+            eventPublisher.publishEvent(
+                    new TransactionEmailEvent(
+                            lockedOrder.getPortfolio().getUser().getEmailAddress(), "SELL", lockedOrder.getAsset().getSymbol(), lockedOrder.getQuantity(), proceeds
+                    )
             );
 
             //add long
