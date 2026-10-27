@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 public class EmailService {
@@ -159,7 +161,7 @@ public class EmailService {
 
     }
 
-    // Send welcome email after successful verification
+    //send welcome email after successful verification
     public void sendWelcomeEmail(String emailAddress) {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
@@ -223,5 +225,70 @@ public class EmailService {
             throw new MailSendException("Failed to prepare welcome email", e);
         }
 
+    }
+
+    //send transaction email for BUY and SELL confirmations
+    public void sendTransactionEmail(String emailAddress, String type, String assetSymbol, BigDecimal quantity, BigDecimal totalAmount) {
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(emailAddress);
+
+            String subject = type.equalsIgnoreCase("BUY")
+                    ? "Investment Purchase Confirmation"
+                    : "Investment Sale Confirmation";
+
+            helper.setSubject(subject);
+
+            String emailBody = """
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 30px;">
+
+            <div style="background-color: white; padding: 30px;
+                        border-radius: 10px; max-width: 500px; margin: auto;">
+
+                <h2 style="color: #1e3a5f;">
+                    Virtual Investment Portfolio
+                </h2>
+
+                <h3>Investment Transaction Confirmation</h3>
+
+                <p>Your investment transaction has been completed successfully.</p>
+
+                <div style="background-color: #eef3f9; padding: 20px;
+                            border-radius: 8px;">
+
+                    <p><strong>Transaction:</strong> %s</p>
+                    <p><strong>Asset:</strong> %s</p>
+                    <p><strong>Quantity:</strong> %s shares</p>
+                    <p><strong>Total Amount:</strong> $%s</p>
+
+                </div>
+
+                <p>Thank you for using Virtual Investment Portfolio!</p>
+
+                <hr>
+
+                <p style="font-size: 11px; color: #999;">
+                    Virtual Investment Portfolio System<br>
+                    Investment simulation only. No real money is involved.
+                </p>
+
+            </div>
+        </body>
+        </html>
+        """.formatted(type, assetSymbol, quantity, totalAmount);
+
+            //Set HTML email body
+            helper.setText(emailBody, true);
+
+            //Send transaction email
+            javaMailSender.send(message);
+
+        } catch (MessagingException e) {
+            throw new MailSendException("Failed to prepare transaction email", e);
+        }
     }
 }
