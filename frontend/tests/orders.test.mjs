@@ -3,6 +3,43 @@ import assert from 'node:assert/strict'
 import { createApi, errorMessage } from '../src/api/client.js'
 import { EXECUTE_PENDING_PATH, limitOrderPayload, orderAssetLabel, placeLimitOrder, cancelLimitOrder, executePendingOrders } from '../src/api/orders.js'
 import { sectionFor } from '../src/auth/roles.js'
+import { loadSellHoldings, validateSellQuantity } from '../src/api/orders.js'
+
+test('SELL availability includes pending reservations across every page, ignoring BUY and completed orders', async () => {
+  const signal = new AbortController().signal
+  const paths = []
+  const result = await loadSellHoldings(async (path, options) => {
+    assert.equal(options.signal, signal)
+    paths.push(path)
+    if (path === '/portfolio/holdings') return [{ assetId: 1, quantity: 10 }, { assetId: 2, quantity: 2 }, { assetId: 3, quantity: 0.3 }]
+    if (path.includes('page=0')) return { totalPages: 2, content: [
+      { assetId: 1, orderType: 'SELL', status: 'PENDING', quantity: 3 },
+      { assetId: 1, orderType: 'BUY', status: 'PENDING', quantity: 100 },
+      { assetId: 1, orderType: 'SELL', status: 'FILLED', quantity: 100 },
+      { assetId: 1, orderType: 'SELL', status: 'CANCELLED', quantity: 100 },
+    ] }
+    return { content: [
+      { assetId: 1, orderType: 'SELL', status: 'PENDING', quantity: 2 },
+      { assetId: 2, orderType: 'SELL', status: 'PENDING', quantity: 2 },
+      { assetId: 3, orderType: 'SELL', status: 'PENDING', quantity: 0.1 },
+    ] }
+  }, { signal })
+  assert.deepEqual(result.map(({ reserved, available }) => [reserved, available]), [[5, 5], [2, 0], [0.1, 0.2]])
+  assert.equal(paths.length, 3)
+  validateSellQuantity(5, result[0])
+  validateSellQuantity(0.2, result[2])
+  assert.throws(() => validateSellQuantity(5.01, result[0]), /available shares/)
+  assert.throws(() => validateSellQuantity(1, result[1]), /available shares/)
+  assert.throws(() => validateSellQuantity(1), /available shares/)
+})
+
+test('SELL availability fails closed when reservations cannot be loaded and supports empty holdings', async () => {
+  await assert.rejects(loadSellHoldings(async path => {
+    if (path === '/portfolio/holdings') return [{ assetId: 1, quantity: 10 }]
+    throw new Error('Orders unavailable')
+  }), /Orders unavailable/)
+  assert.deepEqual(await loadSellHoldings(async path => path === '/portfolio/holdings' ? [] : { content: [], totalPages: 0 }), [])
+})
 
 const assets = [{ assetId: 42, symbol: 'TEST', name: 'Test asset' }]
 const valid = { assetId: '42', orderType: 'BUY', quantity: '5', limitPrice: '12' }

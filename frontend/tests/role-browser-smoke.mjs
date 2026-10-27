@@ -54,6 +54,10 @@ const fixture = `(() => {
   save(load())
   window.__fixture = update => { const data = load(); Object.assign(data, update); save(data) }
   let stream
+  window.__emitSseChunks = chunks => {
+    if (!stream) throw new Error('The mock notification stream is not connected')
+    for (const chunk of chunks) stream.enqueue(new TextEncoder().encode(chunk))
+  }
   window.fetch = async (input, options = {}) => {
     const url = new URL(input, location.href)
     if (url.origin === location.origin) return originalFetch(input, options)
@@ -161,6 +165,28 @@ try {
   await click('Confirm buy'); await wait(`document.body.innerText.includes('Purchase completed successfully.')`)
   await wait(`document.querySelector('.notification-count')?.textContent === '1'`)
   await click('Notifications (1)'); await wait(`document.body.innerText.includes('Purchase completed: 0.01 shares of AAPL')`)
+  // Exercise the real SSE parser and notification UI, including split limit-order frames.
+  const limitBuy = 'Limit BUY order executed: 2 shares of AAPL'
+  const limitSell = 'Limit SELL order executed: 2 shares of AAPL'
+  const sale = 'Sale completed: 1 shares of AAPL'
+  const fractionalLimitBuy = 'Limit BUY order executed: 0.0100 shares of MSFT'
+  const chunks = [
+    'id: limit-buy\r\nevent: investment-notifi',
+    `cation\r\ndata: ${limitBuy}\r\n\r`,
+    `\nid: sale\nevent: investment-notification\ndata: ${sale}\n\n`,
+    `id: limit-sell\nevent: investment-notification\ndata: ${limitSell}\n\n`,
+    `id: fractional-limit-buy\nevent: investment-notification\ndata: ${fractionalLimitBuy}\n\n`,
+    `id: limit-buy\nevent: investment-notification\ndata: ${limitBuy}\n\n`, // Duplicate ID.
+    `id: unrelated\nevent: other\ndata: ${limitSell}\n\n`, // Wrong event name.
+    'id: invalid\nevent: investment-notification\ndata: <script>unexpected()</script>\n\n',
+  ]
+  await evaluate(`window.__emitSseChunks(${JSON.stringify(chunks)})`)
+  await wait(`document.querySelector('.notification-count')?.textContent === '5'`)
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.notification-panel li'), item => item.textContent)`),
+    [fractionalLimitBuy, limitSell, sale, limitBuy, 'Purchase completed: 0.01 shares of AAPL'])
+  await click('Clear notifications')
+  assert.equal(await evaluate(`document.querySelector('.notification-count')`), null)
+  assert.ok(await evaluate(`document.querySelector('.notification-panel').textContent.includes('No notifications received yet.')`))
   await click('Close notifications'); await click('My Holdings'); await wait(`document.body.innerText.includes('2.01')`)
   await click('Transactions'); await wait(`document.body.innerText.includes('11 total')`)
   await click('Next'); await wait(`document.body.innerText.includes('Page 2 of 2')`)

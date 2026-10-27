@@ -52,6 +52,17 @@ const fixture = `(() => {
   const write = value => { sessionStorage.__ordersFixture = JSON.stringify(value) }
   write(read())
   window.__updateOrdersFixture = update => write({ ...read(), ...update })
+  let notificationStream
+  window.__emitOrderNotification = (message, id, eventName = 'investment-notification') => {
+    if (!notificationStream) throw new Error('Notification stream is not connected')
+    const frame = ['id: ' + id, 'event: ' + eventName, 'data: ' + message, '', ''].join(String.fromCharCode(10))
+    notificationStream.enqueue(new TextEncoder().encode(frame))
+  }
+  window.__fillOrder = (id, eventId) => {
+    const data = read(), order = data.orders.find(order => order.id === id)
+    order.status = 'FILLED'; order.executedAt = '2026-10-27T10:00:00'; write(data)
+    window.__emitOrderNotification('Limit ' + order.orderType + ' order executed: ' + order.quantity + ' shares of AAPL', eventId)
+  }
   const assets = [{ assetId: 1, symbol: 'AAPL', name: 'Apple', assetType: 'STOCK', currentPrice: 100, assetStatus: 'ACTIVE' }, { assetId: 2, symbol: 'MSFT', name: 'Microsoft', assetType: 'STOCK', currentPrice: 120, assetStatus: 'ACTIVE' }]
   window.fetch = async (url, options = {}) => {
     const target = new URL(url, location.href)
@@ -62,10 +73,10 @@ const fixture = `(() => {
     const text = body => new Response(body, { headers: { 'Content-Type': 'text/plain' } })
     if (path === '/auth/login') return json({ token: 'synthetic-' + data.role })
     if (path === '/auth/me') return json({ role: data.role, emailAddress: 'orders-account@example.test' })
-    if (path === '/notifications/subscribe') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(': connected\\n\\n')); options.signal.addEventListener('abort', () => { try { controller.close() } catch {} }, { once: true }) } }), { headers: { 'Content-Type': 'text/event-stream' } })
+    if (path === '/notifications/subscribe') return new Response(new ReadableStream({ start(controller) { notificationStream = controller; controller.enqueue(new TextEncoder().encode(': connected\\n\\n')); options.signal.addEventListener('abort', () => { try { controller.close() } catch {} }, { once: true }) } }), { headers: { 'Content-Type': 'text/event-stream' } })
     if (path === '/assets') return data.assetsFailure ? json({ message: 'java.sql.Exception: private' }, 500) : json(assets)
     if (path === '/portfolio/performance') return json({ totalPortfolioValue: 1000, cashBalance: 800, holdingsValue: 200, totalCostBasis: 200, unrealizedGainLoss: 0 })
-    if (path === '/portfolio/holdings') return json([{ holdingId: 1, assetId: 1, assetSymbol: 'AAPL', assetName: 'Apple', quantity: 2, averageBuyPrice: 100, currentPrice: 100, currentValue: 200 }])
+    if (path === '/portfolio/holdings') return data.holdingsFailure ? json({}, 500) : json(data.holdings ?? [{ holdingId: 1, assetId: 1, assetSymbol: 'AAPL', assetName: 'Apple', quantity: 2, averageBuyPrice: 100, currentPrice: 100, currentValue: 200 }])
     if (path === '/portfolio/transactions') return json({ content: [], totalElements: 0, totalPages: 0 })
     if (path === '/watchlist') return json([])
     if (path === '/profile') return json({ firstName: data.role, lastName: 'Account', emailAddress: 'orders-account@example.test', phoneNumber: '12345678' })
@@ -116,7 +127,9 @@ async function login(role) {
 }
 async function logout() { await click('Logout'); await wait(`Boolean(document.querySelector('input[name=emailAddress]'))`) }
 async function openForm(type = 'BUY') {
-  await click('Place Limit Order'); await select('assetId', '1'); await select('orderType', type); await input('quantity', '5'); await input('limitPrice', '12')
+  await click('Place Limit Order'); await select('orderType', type)
+  await wait(`Boolean(document.querySelector('select[name=assetId] option[value="1"]'))`)
+  await select('assetId', '1'); await input('quantity', '5'); await input('limitPrice', '12')
 }
 
 try {
@@ -149,6 +162,15 @@ try {
   assert.equal(await evaluate(`document.querySelector('tbody tr').cells[4].textContent`), 'PENDING')
   await openForm('SELL')
   assert.ok(await evaluate(`document.querySelector('.order-rule').textContent.includes('greater than or equal')`))
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('.sell-holdings tbody tr').cells, cell => cell.textContent)`), ['AAPL', '2', '0', '2'])
+  const postsBeforeOversell = (await calls()).filter(call => call.path === '/orders' && call.method === 'POST').length
+  await click('Place limit order')
+  assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'POST').length, postsBeforeOversell)
+  await click('AAPL'); await click('Max')
+  assert.equal(await evaluate(`document.querySelector('input[name=quantity]').value`), '2')
+  assert.equal(await evaluate(`document.querySelector('select[name=assetId]').value`), '1')
+  assert.deepEqual(await evaluate(`Array.from(document.querySelector('select[name=assetId]').options, option => option.value)`), ['', '1'])
+  await input('quantity', '1')
   await state({ placeFailure: 'Insufficient available shares for this order' }); await click('Place limit order')
   await wait(`document.body.innerText.includes('Insufficient available shares for this order')`)
   await state({ placeFailure: null }); await input('quantity', '0.01'); await input('limitPrice', '130'); await click('Place limit order')
@@ -185,7 +207,7 @@ try {
   await logout(); await login('USER'); await click('My Orders'); await wait(`Boolean(document.querySelector('tbody'))`)
   assert.equal(await evaluate(`Array.from(document.querySelectorAll('tbody tr')).some(row => row.cells[4].textContent === 'PENDING')`), false)
   // Multiple backend pages: 10 / 10 / 5 rows, preserved order and zero-based queries.
-  const pagedOrders = Array.from({ length: 25 }, (_, index) => ({ id: 100 - index, assetId: 1, orderType: 'BUY', quantity: 100 - index, limitPrice: 110, status: 'PENDING', createdAt: '2026-10-26T10:00:00', executedAt: null }))
+  const pagedOrders = Array.from({ length: 25 }, (_, index) => ({ id: 100 - index, assetId: 1, orderType: index % 2 ? 'SELL' : 'BUY', quantity: 100 - index, limitPrice: 110, status: 'PENDING', createdAt: '2026-10-26T10:00:00', executedAt: null }))
   await state({ orders: pagedOrders, serial: 100 }); await click('Refresh orders')
   await wait(`document.querySelector('.pager')?.textContent.includes('Page 1 of 3') && document.querySelectorAll('tbody tr').length === 10`)
   assert.ok(await evaluate(`document.querySelector('.pager').textContent.includes('25 total')`))
@@ -204,6 +226,43 @@ try {
   await click('Cancel order 90'); await click('Confirm cancellation')
   await wait(`document.querySelector('.pager')?.textContent.includes('Page 2 of 3') && document.querySelector('tbody tr')?.cells[4].textContent === 'CANCELLED'`)
   assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'GET').at(-1).page, '1')
+  // Execution SSE events refresh ONLY the current order page, over the existing connection.
+  const beforeExecution = await calls()
+  const orderGetsBefore = beforeExecution.filter(call => call.path === '/orders' && call.method === 'GET').length
+  const subscriptionsBefore = beforeExecution.filter(call => call.path === '/notifications/subscribe').length
+  const assetGetsBefore = beforeExecution.filter(call => call.path === '/assets').length
+  const cashGetsBefore = beforeExecution.filter(call => call.path === '/portfolio/performance').length
+  const documentMarker = Date.now()
+  await evaluate(`window.__sameOrdersDocument = ${documentMarker}; window.__fillOrder(89, 'executed-sell'); window.__fillOrder(88, 'executed-buy')`)
+  await wait(`['89', '88'].every(quantity => [...document.querySelectorAll('tbody tr')].some(row => row.cells[2].textContent === quantity && row.cells[4].textContent === 'FILLED'))`)
+  assert.ok(await evaluate(`document.querySelector('.pager').textContent.includes('Page 2 of 3')`))
+  assert.equal(await evaluate(`document.querySelectorAll('tbody tr').length`), 10)
+  assert.equal(await evaluate('window.__sameOrdersDocument'), documentMarker)
+  const afterExecution = await calls()
+  assert.equal(afterExecution.filter(call => call.path === '/orders' && call.method === 'GET').length, orderGetsBefore + 1, 'Batch execution notifications into one GET')
+  assert.equal(afterExecution.filter(call => call.path === '/orders' && call.method === 'GET').at(-1).page, '1')
+  assert.equal(afterExecution.filter(call => call.path === '/notifications/subscribe').length, subscriptionsBefore)
+  assert.equal(afterExecution.filter(call => call.path === '/assets').length, assetGetsBefore)
+  assert.equal(afterExecution.filter(call => call.path === '/portfolio/performance').length, cashGetsBefore)
+  await click('Notifications (2)')
+  await wait(`document.querySelector('.notification-panel').textContent.includes('Limit BUY order executed: 88 shares of AAPL') && document.querySelector('.notification-panel').textContent.includes('Limit SELL order executed: 89 shares of AAPL')`)
+  await click('Close notifications')
+  await evaluate(`window.__fillOrder(88, 'executed-buy'); window.__emitOrderNotification('Purchase completed: 1 shares of AAPL', 'normal-buy'); window.__emitOrderNotification('Limit SELL order executed: 1 shares of AAPL', 'other-event', 'other')`)
+  await new Promise(resolve => setTimeout(resolve, 350))
+  assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'GET').length, orderGetsBefore + 1, 'Duplicate IDs and unrelated events must not refetch orders')
+  // A failed event-driven GET retains the requested page and can use the existing retry UI.
+  await state({ ordersFailure: true }); await evaluate(`window.__fillOrder(87, 'executed-with-get-error')`)
+  await wait(`Boolean(document.querySelector('.alert-error'))`)
+  await state({ ordersFailure: false }); await click('Try again')
+  await wait(`document.querySelector('.pager')?.textContent.includes('Page 2 of 3') && [...document.querySelectorAll('tbody tr')].some(row => row.cells[2].textContent === '87' && row.cells[4].textContent === 'FILLED')`)
+  const getsBeforeLeaving = (await calls()).filter(call => call.path === '/orders' && call.method === 'GET').length
+  await click('My Holdings'); await header('My Holdings')
+  await evaluate(`window.__fillOrder(86, 'executed-offscreen')`)
+  await new Promise(resolve => setTimeout(resolve, 350))
+  assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'GET').length, getsBeforeLeaving, 'Do not fetch orders while another section is open')
+  await click('My Orders'); await header('My Orders'); await wait(`document.querySelector('.pager')?.textContent.includes('Page 1 of 3')`)
+  await click('Next'); await wait(`document.querySelector('.pager')?.textContent.includes('Page 2 of 3')`)
+  assert.equal((await calls()).filter(call => call.path === '/notifications/subscribe').length, subscriptionsBefore, 'Navigation and refreshes must reuse the SSE connection')
   await openForm(); await click('Place limit order')
   await wait(`document.querySelector('.pager')?.textContent.includes('Page 1 of 3') && Boolean(document.querySelector('button[aria-label="Cancel order 101"]'))`)
   assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'GET').at(-1).page, '0')
@@ -214,9 +273,29 @@ try {
   await click('Previous'); await wait(`document.querySelector('.pager')?.textContent.includes('Page 1 of 3')`)
   await state({ orders: [] }); await click('Refresh orders'); await wait(`document.body.innerText.includes('You have no limit orders yet.')`)
   assert.equal(await evaluate(`[...document.querySelectorAll('.pager button')].every(button => button.disabled)`), true)
+  await openForm('SELL')
+  assert.equal(await evaluate('document.documentElement.scrollWidth'), 375)
+  await state({ orders: [201, 202].map(id => ({ id, assetId: 1, orderType: 'SELL', quantity: 1, limitPrice: 120, status: 'PENDING' })) })
+  await click('Refresh orders')
+  await wait(`document.querySelector('.sell-holdings tbody tr')?.cells[3].textContent === '0'`)
+  assert.equal(await evaluate(`document.querySelector('.sell-holdings button').disabled`), true)
+  assert.equal(await evaluate(`document.querySelector('select[name=assetId]').options.length`), 1)
+  await evaluate(`window.__fillOrder(201, 'sell-holdings-refresh')`)
+  await wait(`document.querySelector('.sell-holdings tbody tr')?.cells[3].textContent === '1'`)
+  await click('AAPL'); await click('Max')
+  assert.equal(await evaluate(`document.querySelector('input[name=quantity]').value`), '1')
+  const postsBeforeRetry = (await calls()).filter(call => call.path === '/orders' && call.method === 'POST').length
+  await state({ holdingsFailure: true }); await click('Refresh orders')
+  await wait(`Boolean(document.querySelector('.sell-holdings .alert-error'))`)
+  await state({ holdingsFailure: false }); await click('Try again')
+  await wait(`document.querySelector('.sell-holdings tbody tr')?.cells[3].textContent === '1'`)
+  assert.equal((await calls()).filter(call => call.path === '/orders' && call.method === 'POST').length, postsBeforeRetry)
+  await state({ holdings: [] }); await click('Refresh orders')
+  await wait(`document.querySelector('.sell-holdings').textContent.includes('You have no holdings available to sell.')`)
+  await click('Close form')
   assert.deepEqual(exceptions, [])
   const mutations = (await calls()).filter(call => call.method === 'POST' || call.method === 'PATCH')
   assert.ok(mutations.filter(call => call.path.startsWith('/orders')).every(call => call.bearer === 'Bearer synthetic-USER'))
   assert.ok(mutations.filter(call => call.path === '/admin/assets/execute-pending').every(call => call.bearer === 'Bearer synthetic-ADMIN'))
-  console.log('PASS orders browser smoke: 10/10/5-row pagination, zero-based JWT requests, loading/empty/boundary controls, mobile paging, current-page cancellation refresh, creation reset to page 1, BUY/SELL forms, cancellation races, safe errors/retry, and ADMIN-only execution. Mock API only.')
+  console.log('PASS orders browser smoke: SELL holdings, reservations, asset selection, Max, oversell prevention, SSE availability refresh, error/retry and empty/mobile states; existing BUY/SELL placement, cancellation, pagination, SSE notifications, duplicate prevention and JWT checks pass. Mock API only.')
 } finally { await send('Emulation.clearDeviceMetricsOverride'); socket.close() }

@@ -3,6 +3,30 @@ import { ApiError } from './client.js'
 // Verified mapping: AdminAssetController, not InvestmentOrderController.
 export const EXECUTE_PENDING_PATH = '/admin/assets/execute-pending'
 
+// HoldingResponse does not include reservations, so include every pending SELL page.
+export async function loadSellHoldings(api, options) {
+  const [holdings, first] = await Promise.all([
+    api('/portfolio/holdings', options), api('/orders?page=0&size=10', options),
+  ])
+  const orders = [...first.content]
+  for (let page = 1; page < first.totalPages; page++) {
+    const next = await api(`/orders?page=${page}&size=10`, options)
+    orders.push(...next.content)
+  }
+  return holdings.map(holding => {
+    const reserved = Number(orders.filter(order => order.orderType === 'SELL' && order.status === 'PENDING' && String(order.assetId) === String(holding.assetId)).reduce((sum, order) => sum + Number(order.quantity), 0).toFixed(4))
+    // Holdings use four decimal places; avoid floating-point subtraction artifacts.
+    const available = Math.max(0, Number((Number(holding.quantity) - reserved).toFixed(4)))
+    return { ...holding, reserved, available }
+  })
+}
+
+export function validateSellQuantity(quantity, holding) {
+  if (!holding || !(holding.available > 0) || Number(quantity) > holding.available) {
+    throw new ApiError('Choose a holding and enter no more than its available shares.')
+  }
+}
+
 export function limitOrderPayload(values, assets) {
   const asset = assets.find(item => String(item.assetId) === String(values.assetId))
   if (!asset || !Number.isSafeInteger(Number(asset.assetId)) || Number(asset.assetId) <= 0) {

@@ -10,7 +10,7 @@ export function Field({ label, children, ...props }) {
 }
 export function Resource({ resource, empty = false, emptyText = 'No items found.', children }) {
   if (resource.loading) return <div role="status" className="empty loading-state"><span className="loading-spinner" aria-hidden="true" />Loading…</div>
-  if (resource.error) return <><Alert>{resource.error}</Alert><button onClick={resource.reload}>Try again</button></>
+  if (resource.error) return <><Alert>{resource.error}</Alert><button type="button" onClick={resource.reload}>Try again</button></>
   if (empty) return <div className="empty empty-state"><span className="icon-tile"><Icon name="holdings" size={24} /></span><p>{emptyText}</p></div>
   return children
 }
