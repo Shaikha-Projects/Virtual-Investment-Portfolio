@@ -4,6 +4,7 @@ import com.ga.investmentportfolio.Security.JWTUtils;
 import com.ga.investmentportfolio.Security.MyUserDetailsService;
 import com.ga.investmentportfolio.Security.SecurityConfiguration;
 import com.ga.investmentportfolio.Service.NotificationService;
+import com.ga.investmentportfolio.Service.RateLimitService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,6 +24,9 @@ class NotificationControllerTest {
     @Autowired NotificationService notifications;
     @MockitoBean JWTUtils jwt;
     @MockitoBean MyUserDetailsService users;
+
+    @MockitoBean
+    private RateLimitService rateLimitService;
 
     @Test
     void subscriptionRequiresAuthentication() throws Exception {

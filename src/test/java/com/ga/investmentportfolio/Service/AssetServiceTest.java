@@ -84,7 +84,7 @@ public class AssetServiceTest {
 
         when(portfolioRepository.findByIdForUpdate(portfolio.getId())).thenReturn(Optional.of(portfolio));
 
-        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
+        when(assetRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(asset));
 
         assertThrows(BusinessRuleException.class, () -> assetService.buyAsset(email, request));
     }
@@ -125,7 +125,7 @@ public class AssetServiceTest {
         when(userRepository.findByEmailAddress(email)).thenReturn(Optional.of(user));
         when(portfolioRepository.findByIdForUpdate(portfolio.getId())).thenReturn(Optional.of(portfolio));
 
-        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
+        when(assetRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(asset));
 
         when(holdingRepository.findByPortfolioAndAsset(portfolio, asset)).thenReturn(Optional.of(holding));
 

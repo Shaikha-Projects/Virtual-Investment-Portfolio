@@ -3,6 +3,7 @@ package com.ga.investmentportfolio.Controller;
 import com.ga.investmentportfolio.Security.JWTUtils;
 import com.ga.investmentportfolio.Security.MyUserDetailsService;
 import com.ga.investmentportfolio.Service.AdminUserService;
+import com.ga.investmentportfolio.Service.RateLimitService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,9 @@ public class AdminUserControllerTest {
 
     @MockitoBean
     private JWTUtils jwtUtils;
+
+    @MockitoBean
+    private RateLimitService rateLimitService;
 
     @Test
     @DisplayName("When normal user tries to change user status then access is forbidden")

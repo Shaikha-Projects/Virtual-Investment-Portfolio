@@ -7,6 +7,7 @@ import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
 import com.ga.investmentportfolio.Event.TransactionEmailEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
+import com.ga.investmentportfolio.Model.Asset;
 import com.ga.investmentportfolio.Model.Holding;
 import com.ga.investmentportfolio.Model.InvestmentOrder;
 import com.ga.investmentportfolio.Model.Portfolio;
@@ -33,6 +34,7 @@ public class OrderExecutionService {
     private final TradeExecutionService tradeExecutionService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditLogService auditLogService;
+    private final AssetRepository assetRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -66,7 +68,18 @@ public class OrderExecutionService {
             //refresh portfolio to get the latest database values
             entityManager.refresh(portfolio);
 
-            BigDecimal actualCost = lockedOrder.getQuantity().multiply(currentPrice).setScale(2, RoundingMode.HALF_UP);
+            //lock asset to get latest price
+            Asset asset = assetRepository.findByIdForUpdate(lockedOrder.getAsset().getId())
+                    .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+            //get the latest price after locking the asset
+            BigDecimal latestPrice = asset.getCurrentPrice();
+            //check the limit price again
+            if (latestPrice.compareTo(limitPrice) > 0) {
+                return;
+            }
+
+            BigDecimal actualCost = lockedOrder.getQuantity().multiply(latestPrice).setScale(2, RoundingMode.HALF_UP);
             BigDecimal reservedCash = lockedOrder.getQuantity().multiply(limitPrice).setScale(2, RoundingMode.HALF_UP);
 
             //check sufficient reserved cash before execution
@@ -84,10 +97,10 @@ public class OrderExecutionService {
             portfolio.setReservedCash(portfolio.getReservedCash().subtract(reservedCash));
 
             //update holdings
-            tradeExecutionService.updateHoldingAfterBuy(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity(), currentPrice);
+            tradeExecutionService.updateHoldingAfterBuy(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity(), latestPrice);
 
             //create BUY transaction
-            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.BUY, lockedOrder.getQuantity(), currentPrice);
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.BUY, lockedOrder.getQuantity(), latestPrice);
 
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
@@ -117,7 +130,7 @@ public class OrderExecutionService {
                     lockedOrder.getId(),
                     lockedOrder.getAsset().getSymbol(),
                     lockedOrder.getQuantity(),
-                    currentPrice);
+                    latestPrice);
 
         }
         //SELL
@@ -130,12 +143,23 @@ public class OrderExecutionService {
             //refresh portfolio to get the latest database values
             entityManager.refresh(portfolio);
 
+            //lock asset to get latest price
+            Asset asset = assetRepository.findByIdForUpdate(lockedOrder.getAsset().getId())
+                    .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
+
+            //get the latest price after locking the asset
+            BigDecimal latestPrice = asset.getCurrentPrice();
+            //check SELL limit price again
+            if (latestPrice.compareTo(limitPrice) < 0) {
+                return;
+            }
+
             //get user holding
             Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, lockedOrder.getAsset())
                     .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
 
             //calculate sale proceeds
-            BigDecimal proceeds = lockedOrder.getQuantity().multiply(currentPrice).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal proceeds = lockedOrder.getQuantity().multiply(latestPrice).setScale(2, RoundingMode.HALF_UP);
 
             //release reserved shares
             if (holding.getReservedQuantity().compareTo(lockedOrder.getQuantity()) < 0) {
@@ -144,13 +168,13 @@ public class OrderExecutionService {
             holding.setReservedQuantity(holding.getReservedQuantity().subtract(lockedOrder.getQuantity()));
 
             //reduce the holding using the shared service
-            tradeExecutionService.updateHoldingAfterSell(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity());
+            tradeExecutionService.updateHoldingAfterSell(portfolio, asset, lockedOrder.getQuantity());
 
             //increase the portfolio cash balance
             portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
 
             //create SELL transaction
-            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.SELL, lockedOrder.getQuantity(), currentPrice);
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.SELL, lockedOrder.getQuantity(), latestPrice);
 
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
@@ -182,7 +206,7 @@ public class OrderExecutionService {
                     lockedOrder.getId(),
                     lockedOrder.getAsset().getSymbol(),
                     lockedOrder.getQuantity(),
-                    currentPrice);
+                    latestPrice);
 
         }
     }
