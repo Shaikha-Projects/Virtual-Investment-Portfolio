@@ -36,6 +36,14 @@ public class Transaction {
     @Column (nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    //cost of the shares when they were originally purchased
+    @Column(precision = 15, scale = 2)
+    private BigDecimal costBasis;
+
+    //profit or loss from selling shares
+    @Column(precision = 15, scale = 2)
+    private BigDecimal realizedGainLoss;
+
     @Column (nullable = false)
     @Enumerated(EnumType.STRING)
     private TransactionStatus transactionStatus;

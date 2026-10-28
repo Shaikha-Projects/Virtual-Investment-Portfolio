@@ -89,7 +89,7 @@ public class TradeExecutionService {
     }
 
     //method to create transaction after buy/sell operation
-    public Transaction createTransaction(Portfolio portfolio, Asset asset, TransactionType type, BigDecimal quantity, BigDecimal price) {
+    public Transaction createTransaction(Portfolio portfolio, Asset asset, TransactionType type, BigDecimal quantity, BigDecimal price, BigDecimal costBasis) {
         BigDecimal totalAmount = quantity.multiply(price).setScale(2, RoundingMode.HALF_UP);
 
         Transaction transaction = new Transaction();
@@ -98,6 +98,13 @@ public class TradeExecutionService {
         transaction.setQuantity(quantity);
         transaction.setPricePerUnit(price);
         transaction.setTotalAmount(totalAmount);
+
+        //calculate realized profit or loss for SELL transactions
+        if (type == TransactionType.SELL) {
+            transaction.setCostBasis(costBasis);
+            transaction.setRealizedGainLoss(totalAmount.subtract(costBasis));
+        }
+
         transaction.setTransactionStatus(TransactionStatus.COMPLETED);
         transaction.setPortfolio(portfolio);
         transaction.setAsset(asset);

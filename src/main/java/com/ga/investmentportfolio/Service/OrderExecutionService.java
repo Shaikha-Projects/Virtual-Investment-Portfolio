@@ -100,7 +100,7 @@ public class OrderExecutionService {
             tradeExecutionService.updateHoldingAfterBuy(portfolio, lockedOrder.getAsset(), lockedOrder.getQuantity(), latestPrice);
 
             //create BUY transaction
-            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.BUY, lockedOrder.getQuantity(), latestPrice);
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.BUY, lockedOrder.getQuantity(), latestPrice, null);
 
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);
@@ -157,6 +157,8 @@ public class OrderExecutionService {
             //get user holding
             Holding holding = holdingRepository.findByPortfolioAndAsset(portfolio, lockedOrder.getAsset())
                     .orElseThrow(() -> new BusinessRuleException("You do not own this asset"));
+            //calculate the original cost of the sold shares
+            BigDecimal costBasis = lockedOrder.getQuantity().multiply(holding.getAverageBuyPrice()).setScale(2, RoundingMode.HALF_UP);
 
             //calculate sale proceeds
             BigDecimal proceeds = lockedOrder.getQuantity().multiply(latestPrice).setScale(2, RoundingMode.HALF_UP);
@@ -174,7 +176,7 @@ public class OrderExecutionService {
             portfolio.setCashBalance(portfolio.getCashBalance().add(proceeds));
 
             //create SELL transaction
-            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.SELL, lockedOrder.getQuantity(), latestPrice);
+            tradeExecutionService.createTransaction(portfolio, lockedOrder.getAsset(), TransactionType.SELL, lockedOrder.getQuantity(), latestPrice, costBasis);
 
             //update order status
             lockedOrder.setStatus(OrderStatus.FILLED);

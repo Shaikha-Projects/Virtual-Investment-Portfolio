@@ -225,7 +225,7 @@ public class AssetService {
         tradeExecutionService.updateHoldingAfterBuy(portfolio, asset, request.getQuantity(), asset.getCurrentPrice());
 
         //create BUY transaction
-        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.BUY, request.getQuantity(), asset.getCurrentPrice());
+        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.BUY, request.getQuantity(), asset.getCurrentPrice(), null);
 
         //add log info
         log.info("BUY transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
@@ -315,6 +315,9 @@ public class AssetService {
             throw new BusinessRuleException("Insufficient available shares to sell");
         }
 
+        //calculate the original cost of the shares being sold
+        BigDecimal costBasis = request.getQuantity().multiply(holding.getAverageBuyPrice()).setScale(2, RoundingMode.HALF_UP);
+
 
         //calculating the sale proceeds
         BigDecimal proceeds = request.getQuantity().multiply(asset.getCurrentPrice()).setScale(2, RoundingMode.HALF_UP);
@@ -329,7 +332,7 @@ public class AssetService {
         portfolioRepository.save(portfolio);
 
         //create SELL transaction using shared service
-        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.SELL, request.getQuantity(), asset.getCurrentPrice());
+        Transaction savedTransaction = tradeExecutionService.createTransaction(portfolio, asset, TransactionType.SELL, request.getQuantity(), asset.getCurrentPrice(), costBasis);
 
         //add info log after Successful sell
         log.info("SELL transaction completed - user: {}, asset: {}, quantity: {}, transactionId: {}",
@@ -440,9 +443,28 @@ public class AssetService {
         //cash balance + the current holdings value
         BigDecimal totalPortfolioValue = portfolio.getCashBalance().add(holdingsValue);
 
+        //initial virtual balance
+        BigDecimal startingBalance = new BigDecimal("100000.00");
+
+        //calculate overall gain or loss
+        BigDecimal totalGainLoss = totalPortfolioValue.subtract(startingBalance);
+
+        //calculate overall return percentage
+        BigDecimal totalReturnPercentage = totalGainLoss
+                .divide(startingBalance, 4, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal("100"));
+
+        //calculate total realized profit or loss from completed SELL transactions
+        BigDecimal realizedGainLoss = transactionRepository.sumRealizedGainLoss(portfolio, TransactionType.SELL, TransactionStatus.COMPLETED);
+
+        //if there are no realized gains or losses yet
+        if (realizedGainLoss == null) {
+            realizedGainLoss = BigDecimal.ZERO;
+        }
+
         //return PortfolioPerformanceResponse
         return new PortfolioPerformanceResponse(
-                portfolio.getCashBalance(), holdingsValue, totalPortfolioValue, totalCostBasis, unrealizedGainLoss
+                portfolio.getCashBalance(), holdingsValue, totalPortfolioValue, totalCostBasis, unrealizedGainLoss, totalGainLoss, totalReturnPercentage, realizedGainLoss
         );
     }
 
