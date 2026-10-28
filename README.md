@@ -1,4 +1,3 @@
-[README_Project3.md](https://github.com/user-attachments/files/34077529/README_Project3.md)
 # Virtual Investment Portfolio System
 
 A full-stack **virtual investment simulation platform** built with **Java 17, Spring Boot, PostgreSQL, React, and Vite**. Investors start with **$100,000 in virtual funds** and can buy and sell simulated assets, place limit orders, and monitor portfolio performance without using real money.
