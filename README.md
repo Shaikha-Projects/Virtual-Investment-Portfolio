@@ -19,7 +19,9 @@ The purpose of this application is to provide a safe environment where users can
 - Virtual portfolio with a $100,000 starting balance
 - Browse, search, and filter investment assets
 - Buy and sell assets using virtual funds
-- View portfolio holdings and performance
+- View portfolio holdings, performance, overall gain/loss, and overall return percentage
+- View realized profit/loss on recorded SELL transactions and unrealized profit/loss on current holdings
+- View recorded portfolio value over time with 1D, 1W, 1M, and ALL history filters
 - View paginated and sorted transaction history
 - Add and remove assets from a watchlist
 - Admin asset management
@@ -92,12 +94,13 @@ The main persisted components of the system include:
 - Audit Log
 - Investment Order
 - Price History
+- Portfolio Snapshot
 
 The database model contains 11 entities.
 
 The main investment flow is:
 
-User → Portfolio → Asset → Buy/Sell → Transaction → Holdings → Portfolio Performance
+User → Portfolio → Asset → Buy/Sell → Transaction → Holdings → Portfolio Performance → Portfolio Snapshot
 
 The limit-order flow is:
 
@@ -107,7 +110,7 @@ User → Place BUY/SELL Limit Order → PENDING → Market Price Check → FILLE
 
 I approached the project by first identifying the main requirements and breaking them into smaller user stories and development tasks. I designed the database structure and relationships around the main investment workflow, where a user has a portfolio and can interact with available assets through buy and sell operations. I used a layered architecture to separate the controllers, business logic, database access, security, and data transfer objects.
 
-I implemented the project incrementally, starting with user registration, email verification, authentication, and JWT security before moving to the investment features. The investment logic was implemented with business rules to prevent actions such as purchasing with insufficient funds or selling more shares than the user owns. After the core functionality was working, I added watchlists, portfolio performance, administrative asset management, user deactivation, audit logging, rate limiting, real-time SSE notifications, pagination and sorting, Swagger documentation, seed data, and automated testing. For Project 3, I extended investment functionality with limit orders, automatic concurrent order execution, concurrent simulated market price updates, reliable after-commit notifications, further audit logging, and database concurrency controls.
+I implemented the project incrementally, starting with user registration, email verification, authentication, and JWT security before moving to the investment features. The investment logic was implemented with business rules to prevent actions such as purchasing with insufficient funds or selling more shares than the user owns. After the core functionality was working, I added watchlists, portfolio performance, administrative asset management, user deactivation, audit logging, rate limiting, real-time SSE notifications, pagination and sorting, Swagger documentation, seed data, and automated testing. For Project 3, I extended investment functionality with limit orders, automatic concurrent order execution, concurrent simulated market price updates, after-commit notifications, further audit logging, database concurrency controls, and portfolio performance analytics with historical snapshots.
 
 Git and GitHub were used throughout development with separate branches for features and pull requests to merge completed work into the main branch.
 
@@ -357,11 +360,6 @@ If an operation fails and its transaction is rolled back, the related success au
 
 The application uses JUnit and Mockito for automated testing, along with PostgreSQL integration tests.
 
-The last confirmed full regression run before the additional rate-limiting tests completed successfully with:
-
-- **132 passing tests**
-- **102 isolated PostgreSQL integration tests**
-
 The tests cover important application functionality, including:
 
 - Authentication and authorization
@@ -387,7 +385,8 @@ The ERD shows the database entities, their attributes, and the relationships bet
 
 [View ERD on dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646)
 
-<img width="1809" height="1251" alt="image" src="https://github.com/user-attachments/assets/1269894a-385f-4d82-bef8-1a68eef31c64" />
+<img width="1944" height="1289" alt="image" src="https://github.com/user-attachments/assets/cef34db0-dff5-4374-a3da-a9831e8e05c9" />
+
 
 ## Planning
 
