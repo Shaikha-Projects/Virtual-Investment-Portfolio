@@ -116,6 +116,13 @@ button.asset-details-link:hover:not(:disabled), button.asset-name-link:hover:not
 .portfolio-history-panel { margin-bottom: 24px; min-width: 0; }
 .portfolio-history-panel .panel-heading { flex-wrap: wrap; gap: 12px; }
 .portfolio-history-panel .actions { flex-wrap: wrap; }
+.notification-toasts { position: fixed; top: 82px; right: 20px; width: min(370px, calc(100vw - 32px)); display: grid; gap: 10px; z-index: 120; pointer-events: none; }
+.notification-toast { display: flex; align-items: flex-start; gap: 10px; padding: 14px; color: #d1fae5; background: #122b2a; border: 1px solid #245044; border-radius: 12px; box-shadow: 0 8px 28px #00000045; pointer-events: auto; animation: notification-toast-enter 180ms ease-out; }
+.notification-toast > .icon { color: #6ee7b7; flex-shrink: 0; margin-top: 2px; }
+.notification-toast p { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.notification-toast .icon-button { flex-shrink: 0; width: 28px; height: 28px; min-height: 28px; padding: 5px; color: #a6c9bd; }
+@keyframes notification-toast-enter { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 540px) { .notification-toasts { top: 76px; right: 16px; } }
 .dashboard-allocation { margin-bottom: 22px; }
 .dashboard-allocation .allocation-content { min-height: 210px; justify-content: space-around; }
 .portfolio-overview > .quick-actions { margin: 18px 0 0; }

@@ -49,11 +49,20 @@ const apiCalls = () => evaluate('JSON.parse(sessionStorage.__roleBackend).calls'
 // Role comes from the mock identity endpoint, independent of login email.
 const fixture = `(() => {
   const originalFetch = window.fetch.bind(window)
+  const originalTimeout = window.setTimeout.bind(window), originalClear = window.clearTimeout.bind(window)
+  window.__toastTimers = new Set()
+  window.setTimeout = (callback, delay, ...args) => {
+    if (delay !== 5000) return originalTimeout(callback, delay, ...args)
+    const timer = originalTimeout(() => { window.__toastTimers.delete(timer); callback(...args) }, delay)
+    window.__toastTimers.add(timer); return timer
+  }
+  window.clearTimeout = timer => { window.__toastTimers.delete(timer); originalClear(timer) }
   const load = () => JSON.parse(sessionStorage.__roleBackend || JSON.stringify({ identities: {}, calls: [], serial: 0, next: { role: 'ADMIN', emailAddress: 'same-account@example.test' }, quantity: 2, cash: 1000, asset: { assetId: 1, symbol: 'AAPL', name: 'Apple', assetType: 'STOCK', currentPrice: 100, assetStatus: 'ACTIVE' } }))
   const save = data => { sessionStorage.__roleBackend = JSON.stringify(data) }
   save(load())
   window.__fixture = update => { const data = load(); Object.assign(data, update); save(data) }
   let stream
+  window.__closeSse = () => stream.close()
   window.__emitSseChunks = chunks => {
     if (!stream) throw new Error('The mock notification stream is not connected')
     for (const chunk of chunks) stream.enqueue(new TextEncoder().encode(chunk))
@@ -82,9 +91,12 @@ const fixture = `(() => {
     if (path === '/portfolio/performance') return reply({ cashBalance: data.cash, holdingsValue: data.quantity * 100, totalPortfolioValue: data.cash + data.quantity * 100, totalCostBasis: data.quantity * 100, unrealizedGainLoss: 0 })
     if (path === '/portfolio/holdings') return reply(data.quantity ? [{ holdingId: 1, assetId: 1, assetSymbol: 'AAPL', assetName: 'Apple', quantity: data.quantity, currentPrice: 100, averageBuyPrice: 100, currentValue: data.quantity * 100 }] : [])
     if (path === '/portfolio/buy' || path === '/portfolio/sell') {
+      if (data.tradeFailure) return reply({ message: 'Insufficient funds' }, 400)
       const quantity = JSON.parse(options.body).quantity, buy = path.endsWith('buy')
       data.quantity += buy ? quantity : -quantity; data.cash += buy ? -quantity * 100 : quantity * 100; save(data)
-      stream?.enqueue(new TextEncoder().encode('id: ' + crypto.randomUUID() + '\\nevent: investment-notification\\ndata: ' + (buy ? 'Purchase' : 'Sale') + ' completed: ' + quantity + ' shares of AAPL\\n\\n'))
+      const deliver = () => stream?.enqueue(new TextEncoder().encode('id: ' + crypto.randomUUID() + '\\nevent: investment-notification\\ndata: ' + (buy ? 'Purchase' : 'Sale') + ' completed: ' + quantity + ' shares of AAPL\\n\\n'))
+      if (data.notificationMode === 'delayed') window.__releaseTradeNotification = deliver
+      else if (data.notificationMode !== 'missing') deliver()
       return reply({ cashBalance: data.cash })
     }
     if (path === '/portfolio/transactions') return reply({ content: [{ transactionId: 1, transactionType: 'BUY', assetSymbol: 'AAPL', quantity: 1, pricePerUnit: 100, totalAmount: 100, transactionStatus: 'COMPLETED', createdAt: '2026-10-20T10:00:00' }], totalPages: 2, totalElements: 11 })
@@ -162,8 +174,20 @@ try {
   await click('Assets'); await wait(`Boolean(document.querySelector('button[aria-label="Buy AAPL"]'))`)
   await click('Buy AAPL')
   await evaluate(`(() => { const input = document.querySelector('.trade-panel input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.01'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
-  await click('Confirm buy'); await wait(`document.body.innerText.includes('Purchase completed successfully.')`)
+  await click('Confirm buy'); await wait(`!document.querySelector('.trade-panel')`)
   await wait(`document.querySelector('.notification-count')?.textContent === '1'`)
+  await wait(`document.querySelector('.notification-toast p')?.textContent === 'Purchase completed: 0.01 shares of AAPL'`)
+  assert.equal(await evaluate(`document.querySelector('.alert-success')`), null, 'A received BUY toast must not also produce a page success banner')
+  await wait(`document.querySelector('.notification-toast').checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })`)
+  assert.ok(await evaluate(`(() => {
+    const toast = document.querySelector('.notification-toast'), box = toast.getBoundingClientRect()
+    return box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight && toast.contains(document.elementFromPoint(box.right - 20, box.top + 20))
+  })()`), 'The full BUY form/SSE integration must paint the toast above the application')
+  assert.equal(await evaluate(`document.querySelector('.notification-toasts').getAttribute('aria-live')`), 'polite')
+  await click('Dismiss notification: Purchase completed: 0.01 shares of AAPL')
+  assert.equal(await evaluate(`document.querySelectorAll('.notification-toast').length`), 0)
+  assert.equal(await evaluate('window.__toastTimers.size'), 0)
+  assert.equal(await evaluate(`document.querySelector('.notification-count').textContent`), '1')
   await click('Notifications (1)'); await wait(`document.body.innerText.includes('Purchase completed: 0.01 shares of AAPL')`)
   // Exercise the real SSE parser and notification UI, including split limit-order frames.
   const limitBuy = 'Limit BUY order executed: 2 shares of AAPL'
@@ -184,6 +208,22 @@ try {
   await wait(`document.querySelector('.notification-count')?.textContent === '5'`)
   assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.notification-panel li'), item => item.textContent)`),
     [fractionalLimitBuy, limitSell, sale, limitBuy, 'Purchase completed: 0.01 shares of AAPL'])
+  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.notification-toast p'), item => item.textContent)`), [sale, limitSell, fractionalLimitBuy])
+  assert.equal(await evaluate('window.__toastTimers.size'), 3, 'Evicted toasts must clear their timers')
+  const subscriptions = (await apiCalls()).filter(call => call.path === '/notifications/subscribe').length
+  await evaluate('window.__closeSse()')
+  await wait(`JSON.parse(sessionStorage.__roleBackend).calls.filter(call => call.path === '/notifications/subscribe').length === ${subscriptions + 1}`)
+  await evaluate(`window.__emitSseChunks(${JSON.stringify([`id: limit-buy\nevent: investment-notification\ndata: ${limitBuy}\n\n`])})`)
+  assert.equal(await evaluate(`document.querySelectorAll('.notification-toast').length`), 3)
+  await click('Close notifications'); await click('Notifications (5)')
+  assert.equal(await evaluate(`document.querySelectorAll('.notification-toast').length`), 3)
+  await click(`Dismiss notification: ${limitSell}`)
+  assert.equal(await evaluate('window.__toastTimers.size'), 2)
+  await wait(`document.querySelectorAll('.notification-toast').length === 0`)
+  assert.equal(await evaluate('window.__toastTimers.size'), 0)
+  assert.equal(await evaluate(`document.querySelector('.notification-count').textContent`), '5')
+  await evaluate(`window.__emitSseChunks(${JSON.stringify([`id: limit-buy\nevent: investment-notification\ndata: ${limitBuy}\n\n`])})`)
+  assert.equal(await evaluate(`document.querySelectorAll('.notification-toast').length`), 0, 'Dismissed duplicate IDs must not reappear')
   await click('Clear notifications')
   assert.equal(await evaluate(`document.querySelector('.notification-count')`), null)
   assert.ok(await evaluate(`document.querySelector('.notification-panel').textContent.includes('No notifications received yet.')`))
@@ -192,7 +232,37 @@ try {
   await click('Next'); await wait(`document.body.innerText.includes('Page 2 of 2')`)
   await evaluate(`document.querySelector('.sort-button').click()`); await wait(`document.body.innerText.includes('Page 1 of 2')`)
   await click('Watchlist'); await wait(`document.body.innerText.includes('No assets in your watchlist yet.')`)
+  // A normal SELL uses its SSE toast alone; offline/delayed delivery gets a fallback.
+  await click('My Holdings'); await wait(`Boolean(document.querySelector('button[aria-label="Sell AAPL"]'))`)
+  await click('Sell AAPL'); await evaluate(`(() => { const input = document.querySelector('.trade-panel input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.01'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await click('Confirm sell'); await wait(`!document.querySelector('.trade-panel')`)
+  await wait(`document.querySelector('.notification-toast p')?.textContent === 'Sale completed: 0.01 shares of AAPL'`)
+  assert.equal(await evaluate(`document.querySelector('.alert-success')`), null)
+  await click('Dismiss notification: Sale completed: 0.01 shares of AAPL')
+  await evaluate(`window.__fixture({notificationMode: 'delayed'})`)
+  await click('Assets'); await wait(`Boolean(document.querySelector('button[aria-label="Buy AAPL"]'))`)
+  await click('Buy AAPL'); await evaluate(`(() => { const input = document.querySelector('.trade-panel input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.01'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await click('Confirm buy'); await wait(`document.querySelector('.alert-success')?.textContent.includes('Purchase completed successfully.')`)
+  assert.equal(await evaluate(`document.querySelector('.notification-toast')`), null)
+  await evaluate(`window.__releaseTradeNotification()`)
+  await wait(`Boolean(document.querySelector('.notification-toast')) && !document.querySelector('.alert-success')`)
+  await click('Dismiss notification: Purchase completed: 0.01 shares of AAPL')
+  await evaluate(`window.__fixture({notificationMode: 'missing', tradeFailure: true})`)
+  await click('Buy AAPL'); await evaluate(`(() => { const input = document.querySelector('.trade-panel input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.01'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await click('Confirm buy'); await wait(`document.querySelector('.trade-panel .alert-error')?.textContent.includes('Insufficient funds')`)
+  assert.equal(await evaluate(`document.querySelector('.alert-success')`), null)
+  await evaluate(`window.__fixture({tradeFailure: false})`)
+  await click('Confirm buy'); await wait(`document.querySelector('.alert-success')?.textContent.includes('Purchase completed successfully.')`)
+  assert.equal(await evaluate(`document.querySelector('.notification-toast')`), null)
+  await evaluate(`window.__fixture({notificationMode: null})`)
+  await evaluate(`window.__emitSseChunks(${JSON.stringify([`id: before-logout\nevent: investment-notification\ndata: ${sale}\n\n`])})`)
+  await wait(`document.querySelectorAll('.notification-toast').length === 1`)
+  await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
+  assert.ok(await evaluate(`(() => { const box = document.querySelector('.notification-toast').getBoundingClientRect(); return box.left >= 0 && box.right <= 375 })()`))
   await logout(); await login('ADMIN'); await header('Admin Dashboard')
+  assert.equal(await evaluate('window.__toastTimers.size'), 0, 'Unmount must clear toast timers')
+  assert.equal(await evaluate(`document.querySelector('.notification-toasts')`), null)
+  await send('Emulation.clearDeviceMetricsOverride')
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), false)
   assert.equal(await evaluate(`document.body.innerText.includes('Purchase completed:')`), false)
 

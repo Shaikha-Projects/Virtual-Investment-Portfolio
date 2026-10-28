@@ -1,13 +1,18 @@
 import Icon from './Icon'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import NotificationToasts from './NotificationToasts'
 import { API_BASE } from '../api/client'
 import { createSseParser } from '../api/sse'
+import { useTransactionFeedback } from '../hooks/TransactionFeedback'
 
 export default function Notifications({ session, onLimitOrderExecuted }) {
   const [items, setItems] = useState([])
+  const [toasts, setToasts] = useState([])
+  const dismissToast = useCallback(id => setToasts(previous => previous.filter(item => item.id !== id)), [])
   const [status, setStatus] = useState('Connecting')
   const [open, setOpen] = useState(false)
   const { token, api } = session
+  const feedback = useTransactionFeedback()
   useEffect(() => {
     const controller = new AbortController()
     const seen = new Set()
@@ -39,7 +44,10 @@ export default function Notifications({ session, onLimitOrderExecuted }) {
             if (event.id) { seen.add(event.id); if (seen.size > 200) seen.delete(seen.values().next().value) }
             // Display normal trades and executed limit orders using the same notification UI.
             if (!/^(?:(?:Purchase|Sale) completed|Limit (?:BUY|SELL) order executed): [0-9.]+ shares of [A-Za-z0-9.^_/-]{1,30}$/.test(event.data)) return
-            setItems(previous => [{ id: event.id || crypto.randomUUID(), text: event.data }, ...previous].slice(0, 30))
+            const item = { id: event.id || crypto.randomUUID(), text: event.data }
+            feedback?.received(event.data)
+            setItems(previous => [item, ...previous].slice(0, 30))
+            setToasts(previous => [...previous, item].slice(-3))
             if (/^Limit (BUY|SELL) order executed: /.test(event.data)) {
               // Several orders can execute together; refresh once after the burst.
               clearTimeout(orderRefreshTimer)
@@ -69,9 +77,9 @@ export default function Notifications({ session, onLimitOrderExecuted }) {
     }
     connect()
     return () => { controller.abort(); clearTimeout(retryTimer); clearTimeout(orderRefreshTimer) }
-  }, [token, api, onLimitOrderExecuted])
+  }, [token, api, onLimitOrderExecuted, feedback])
   return <div className="notifications"><button className="icon-button notification-button" aria-label={`Notifications (${items.length})`} title="Notifications" aria-expanded={open} aria-controls="live-notifications" onClick={() => setOpen(value => !value)}><Icon name="bell" size={21} />{items.length > 0 && <span className="notification-count">{items.length}</span>}</button>
-    <span className="sr-only" role="status">{items[0]?.text}</span>
+    <NotificationToasts items={toasts} onDismiss={dismissToast} />
     {open && <section id="live-notifications" className="notification-panel" aria-label="Live notifications"><div className="panel-heading"><h2>Notifications</h2><button className="icon-button" aria-label="Close notifications" onClick={() => setOpen(false)}><Icon name="close" size={17} /></button></div><p className="muted" role="status">{status}</p><p className="muted">Live events from this session only.</p>{items.length ? <ul>{items.map(item => <li key={item.id}>{item.text}</li>)}</ul> : <p>No notifications received yet.</p>}<button className="text-button" onClick={() => setItems([])}>Clear notifications</button></section>}
   </div>
 }

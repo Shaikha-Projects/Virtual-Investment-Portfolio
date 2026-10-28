@@ -3,18 +3,23 @@ import { useAction } from '../hooks/useAction'
 import { money } from '../api/format'
 import { Field, Notice } from './UI'
 import Icon from './Icon'
+import { useTransactionFeedback } from '../hooks/TransactionFeedback'
 
 export default function TradeForm({ selected, mode, api, refresh, close }) {
   const [quantity, setQuantity] = useState('')
   const action = useAction()
+  const feedback = useTransactionFeedback()
   const sell = mode === 'sell'
   const submit = async event => {
     event.preventDefault()
     const amount = Number(quantity)
     if (!Number.isFinite(amount) || amount < 0.01) { action.warn('Enter a quantity of at least 0.01.'); return }
     if (sell && amount > Number(selected.quantity)) { action.warn('You cannot sell more than you own.'); return }
-    if (await action.run(() => api(`/portfolio/${mode}`, { method: 'POST', body: { assetId: selected.assetId, quantity: amount } }))) {
-      refresh(`${sell ? 'Sale' : 'Purchase'} completed successfully.`)
+    const success = `${sell ? 'Sale' : 'Purchase'} completed successfully.`
+    const expectedMessage = `${sell ? 'Sale' : 'Purchase'} completed: ${amount} shares of ${selected.symbol || selected.assetSymbol}`
+    const request = () => api(`/portfolio/${mode}`, { method: 'POST', body: { assetId: selected.assetId, quantity: amount } })
+    if (await action.run(() => feedback ? feedback.run(request, expectedMessage, success) : request())) {
+      refresh(feedback ? '' : success)
       close()
     }
   }

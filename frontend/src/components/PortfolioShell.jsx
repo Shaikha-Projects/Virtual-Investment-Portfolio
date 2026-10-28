@@ -11,6 +11,8 @@ import { useResource } from '../hooks/useResource'
 import { money } from '../api/format'
 import { sectionFor, workspaceFor } from '../auth/roles'
 import { Alert } from './UI'
+import { createTransactionFeedback } from '../api/transactionFeedback'
+import { TransactionFeedbackProvider } from '../hooks/TransactionFeedback'
 
 function CashBalance({ api, revision }) {
   const resource = useResource(api, '/portfolio/performance', revision)
@@ -26,6 +28,9 @@ export default function PortfolioShell({ session }) {
   // Keep this stable so a refreshed order list does not reconnect the SSE stream.
   const onLimitOrderExecuted = useCallback(() => setOrderRevision(value => value + 1), [])
   const [message, setMessage] = useState('')
+  const [transactionFallback, setTransactionFallback] = useState(null)
+  const [transactionFeedback] = useState(() => createTransactionFeedback(setTransactionFallback, id => setTransactionFallback(previous => previous?.id === id ? null : previous)))
+  useEffect(() => () => transactionFeedback.dispose(), [transactionFeedback])
   const admin = session.user.role === 'ADMIN'
   const workspace = workspaceFor(session.user.role)
   const section = sectionFor(session.user.role, requestedSection)
@@ -68,7 +73,7 @@ export default function PortfolioShell({ session }) {
     <button key={value} aria-current={section === value ? 'page' : undefined} aria-label={label} title={collapsed ? label : undefined} onClick={() => navigate(value)}><Icon name={icon} size={19} /><span className="nav-text">{label}</span>{section === value && <span className="nav-active-dot" />}</button>
   ))
   if (!Page) return <main className="login-page"><div className="login-card"><Alert>We could not confirm your account role. Please sign in again.</Alert><button onClick={() => session.logout()}>Return to login</button></div></main>
-  return <div className={`dashboard ${collapsed ? 'sidebar-collapsed' : ''}`}>
+  return <TransactionFeedbackProvider value={transactionFeedback}><div className={`dashboard ${collapsed ? 'sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#main-content">Skip to content</a>
     {mobileOpen && <button className="nav-backdrop" onClick={() => setMobileOpen(false)} aria-label="Close navigation" />}
     <aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`} id="primary-navigation" role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined} aria-label="Application sidebar">
@@ -77,7 +82,7 @@ export default function PortfolioShell({ session }) {
       <div className="sidebar-bottom"><div className="practice-note"><Icon name="shield" size={20} /><div><strong>{admin ? 'Administration workspace' : 'Built for your next move'}</strong><p>{admin ? 'Manage assets and account access.' : 'A virtual account. Real experience.'}</p></div></div><button className="collapse-button secondary" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}><Icon name="collapse" /><span className="nav-text">Collapse sidebar</span></button></div>
     </aside>
     <div className="dashboard-main"><header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu" aria-expanded={mobileOpen} aria-controls="primary-navigation" onClick={() => setMobileOpen(value => !value)}><Icon name="menu" /></button><div className="topbar-title"><span className="breadcrumb">{admin ? 'Administration' : 'Workspace'} <span>/</span></span><h1>{currentLabel}</h1></div><div className="header-account"><span className="account-mode"><span className="live-dot" />{admin ? 'Admin workspace' : 'Virtual account'}</span>{workspace.investmentNotifications && <Notifications session={session} onLimitOrderExecuted={onLimitOrderExecuted} />}<div className="account-identity"><span className="account-avatar">{session.user.emailAddress.charAt(0).toUpperCase()}</span><div><strong>{session.user.emailAddress}</strong><span>{admin ? 'Administrator' : 'Investor account'}</span></div></div><button className="icon-button logout-button" aria-label="Logout" title="Logout" onClick={() => session.logout()}><Icon name="logout" size={19} /></button></div></header>
-      <main id="main-content" className="content" tabIndex={-1}>{!admin && section !== 'dashboard' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div><footer className="workspace-footer"><span>Virtual Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer></main>
+      <main id="main-content" className="content" tabIndex={-1}>{!admin && section !== 'dashboard' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><GlobalNotice message={transactionFallback?.text} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div><footer className="workspace-footer"><span>Virtual Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer></main>
     </div>
-  </div>
+  </div></TransactionFeedbackProvider>
 }
