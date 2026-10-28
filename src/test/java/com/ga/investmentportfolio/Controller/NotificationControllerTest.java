@@ -28,6 +28,7 @@ class NotificationControllerTest {
     @MockitoBean
     private RateLimitService rateLimitService;
 
+
     @Test
     void subscriptionRequiresAuthentication() throws Exception {
         mvc.perform(get("/notifications/subscribe")).andExpect(status().is4xxClientError());
