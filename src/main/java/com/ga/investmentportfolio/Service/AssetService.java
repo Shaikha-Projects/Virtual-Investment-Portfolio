@@ -186,9 +186,20 @@ public class AssetService {
         //refresh portfolio to get the latest database values
         entityManager.refresh(portfolio);
 
+        //TEMPORARY: concurrency demonstration only - race condition
+        //simulates a slow transaction while holding the portfolio lock
+        try {
+            log.info("BUY lock acquired - Thread: {}", Thread.currentThread().getName());
 
-        //find asset
-        Asset asset = assetRepository.findById(request.getAssetId())
+            Thread.sleep(3000);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("BUY operation interrupted", e);
+        }
+
+        //find asset, lock asset to get the latest price
+        Asset asset = assetRepository.findByIdForUpdate(request.getAssetId())
                 .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
 
         //check asset status
@@ -286,8 +297,8 @@ public class AssetService {
         //refresh portfolio to get the latest database values
         entityManager.refresh(portfolio);
 
-        //find asset
-        Asset asset = assetRepository.findById(request.getAssetId())
+        //find asset, lock asset to get the latest price
+        Asset asset = assetRepository.findByIdForUpdate(request.getAssetId())
                 .orElseThrow(() -> new InformationNotFoundException("Asset does not exist"));
 
         //find the holding

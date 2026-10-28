@@ -9,6 +9,7 @@ import com.ga.investmentportfolio.Security.JWTUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -26,6 +27,7 @@ public class AuthServiceTest {
     private PortfolioRepository portfolioRepository;
     private JWTUtils jwtUtils;
     private PasswordResetTokenRepository passwordResetTokenRepository;
+    private ApplicationEventPublisher eventPublisher;
 
 
     //asset service
@@ -41,11 +43,12 @@ public class AuthServiceTest {
         portfolioRepository = mock(PortfolioRepository.class);
         jwtUtils = mock(JWTUtils.class);
         passwordResetTokenRepository = mock(PasswordResetTokenRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
 
         authService = new AuthService(
                 userRepository, passwordEncoder, emailVerificationTokenRepository,
                 emailService, portfolioRepository, jwtUtils,
-                passwordResetTokenRepository);
+                passwordResetTokenRepository, eventPublisher);
     }
 
     //test 3: inactive user cannot log in

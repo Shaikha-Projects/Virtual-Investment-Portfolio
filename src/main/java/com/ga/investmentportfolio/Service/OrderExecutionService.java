@@ -157,7 +157,7 @@ public class OrderExecutionService {
             lockedOrder.setExecutedAt(LocalDateTime.now());
 
             //save EXECUTE_LIMIT_ORDER audit log
-            auditLogService.log(lockedOrder.getPortfolio().getUser().getEmailAddress(), AuditAction.EXECUTE_LIMIT_ORDER,
+             auditLogService.log(lockedOrder.getPortfolio().getUser().getEmailAddress(), AuditAction.EXECUTE_LIMIT_ORDER,
                     "Executed SELL limit order #" + lockedOrder.getId()
                             + " for " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol()
             );
