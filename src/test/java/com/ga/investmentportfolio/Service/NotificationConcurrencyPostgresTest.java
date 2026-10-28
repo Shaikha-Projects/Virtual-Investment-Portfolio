@@ -270,7 +270,7 @@ class NotificationConcurrencyPostgresTest {
                 }
             }
             assertTrue(entered.await(10, TimeUnit.SECONDS)); assertEquals(20, executor.getThreadPoolExecutor().getQueue().size());
-            MockMvc mvc = MockMvcBuilders.standaloneSetup(new PortfolioController(trades), new InvestmentOrderController(orders))
+            MockMvc mvc = MockMvcBuilders.standaloneSetup(new PortfolioController(trades, mock(PortfolioSnapshotService.class)), new InvestmentOrderController(orders))
                     .setControllerAdvice(new GlobalExceptionHandler()).build();
             var principal = new UsernamePasswordAuthenticationToken(email, "test");
             if (scenario.startsWith("DIRECT")) {
