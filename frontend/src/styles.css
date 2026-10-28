@@ -113,4 +113,14 @@ button.asset-details-link:hover:not(:disabled), button.asset-name-link:hover:not
 .price-chart-readout { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 42px; font-size: 11px; color: #94a3b8; margin: 5px 0; }
 .price-chart-readout strong { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 .history-caption { margin: 14px 0 0; font-size: 10px; }
+.portfolio-history-panel { margin-bottom: 24px; min-width: 0; }
+.portfolio-history-panel .panel-heading { flex-wrap: wrap; gap: 12px; }
+.portfolio-history-panel .actions { flex-wrap: wrap; }
+.dashboard-allocation { margin-bottom: 22px; }
+.dashboard-allocation .allocation-content { min-height: 210px; justify-content: space-around; }
+.portfolio-overview > .quick-actions { margin: 18px 0 0; }
+.portfolio-overview > .quick-actions .secondary { padding: 10px 14px; }
+.overall-return > strong { font-size: inherit; font-variant-numeric: tabular-nums; }
+.holdings-cost-basis { margin: 0 0 12px; }
+@media (max-width: 540px) { .portfolio-overview > .kpi-grid { grid-template-columns: 1fr; }.portfolio-overview .kpi-heading > span:first-child { max-width: none; }.dashboard-allocation .allocation-content { min-height: 0; } }
 @media (max-width: 540px) { .market-page > .page-heading { flex-wrap: wrap; }.asset-details-summary > .page-heading { flex-wrap: wrap; }.asset-details-price { align-items: flex-start; flex-direction: column; }.asset-details-price .actions { width: 100%; }.asset-history-panel .panel-heading { flex-wrap: wrap; gap: 10px; }.price-chart-label { font-size: 10px; }.price-chart-readout { font-size: 10px; } }
