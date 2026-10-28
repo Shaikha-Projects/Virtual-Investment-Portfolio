@@ -4,6 +4,14 @@ import { date, money } from '../api/format'
 import { Resource } from '../components/UI'
 import Icon from '../components/Icon'
 
+function ReturnCard({ label, value, percent = false, detail = 'Relative to your initial $100,000 virtual balance' }) {
+  const amount = value == null || String(value).trim() === '' ? NaN : Number(value)
+  const available = Number.isFinite(amount)
+  const tone = available && amount !== 0 ? amount < 0 ? 'negative' : 'positive' : ''
+  const display = available ? percent ? `${amount.toFixed(2)}%` : money(amount) : '—'
+  return <article className="summary-card kpi-card"><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={available && amount < 0 ? 'down' : 'up'} size={18} /></span></div><h3 className={tone}>{display}</h3><p>{detail}</p></article>
+}
+
 function AllocationChart({ rows }) {
   return <div className="allocation-content">
     <figure className="donut-figure">
@@ -48,7 +56,7 @@ export default function DashboardPage({ api, revision, navigate }) {
         ['Holdings market value', data.holdingsValue, 'holdings', 'Current value of your positions'],
         ['Total invested', data.totalCostBasis, 'assets', 'Cost basis of current holdings'],
         ['Unrealized gain / loss', data.unrealizedGainLoss, Number(data.unrealizedGainLoss) < 0 ? 'down' : 'up', Number(data.totalCostBasis) > 0 ? `${percentage(data.unrealizedGainLoss, data.totalCostBasis).toFixed(2)}% of invested cost basis` : 'Build your first position'],
-      ].map(([label, value, icon, detail], index) => <article className="summary-card kpi-card" key={label}><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={icon} size={18} /></span></div><h3 className={index === 3 ? Number(value) < 0 ? 'negative' : 'positive' : ''}>{money(value)}</h3><p>{detail}</p></article>)}</div>
+      ].map(([label, value, icon, detail], index) => <article className="summary-card kpi-card" key={label}><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={icon} size={18} /></span></div><h3 className={index === 3 ? Number(value) < 0 ? 'negative' : 'positive' : ''}>{money(value)}</h3><p>{detail}</p></article>)}<ReturnCard label="Realized Profit/Loss" value={data.realizedGainLoss} detail="Recorded SELL profits and losses. Older sales may be excluded." /><ReturnCard label="Overall Gain/Loss" value={data.totalGainLoss} /><ReturnCard label="Overall Return (%)" value={data.totalReturnPercentage} percent /></div>
     </>}</Resource>
     <div className="quick-actions" aria-label="Portfolio quick actions">{quickActions.map(([target, label, icon]) => <button className="secondary" key={target} onClick={() => navigate(target)}><Icon name={icon} size={18} /><span>{label}</span><Icon name="arrow" size={16} /></button>)}</div>
     <div className="analytics-grid"><article className="card allocation-panel"><div className="panel-heading"><div><span className="eyebrow">Diversification</span><h3>Asset allocation</h3></div><Icon name="pie" /></div><Resource resource={holdings} empty={!rows.length} emptyText="Your allocation starts with your first investment. Browse assets to build your portfolio."><AllocationChart rows={rows} /></Resource></article><article className="card composition-panel"><Resource resource={performance}>{data && <Composition data={data} />}</Resource></article></div>
