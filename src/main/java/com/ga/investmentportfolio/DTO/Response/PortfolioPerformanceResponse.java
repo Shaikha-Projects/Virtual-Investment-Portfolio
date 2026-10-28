@@ -13,4 +13,7 @@ public class PortfolioPerformanceResponse {
     private BigDecimal totalPortfolioValue;
     private BigDecimal totalCostBasis;
     private BigDecimal unrealizedGainLoss;
+    private BigDecimal totalGainLoss;
+    private BigDecimal totalReturnPercentage;
+    private BigDecimal realizedGainLoss;
 }
