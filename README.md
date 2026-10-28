@@ -1,7 +1,7 @@
 # Virtual Investment Portfolio System
 
 ## Project Description
-The Virtual Investment Portfolio System is a secure REST API built using Java and Spring Boot. It allows users to simulate investment activities using virtual money without involving real financial transactions.
+The Virtual Investment Portfolio System is a full-stack investment simulation application with a Java Spring Boot REST API, a React frontend, and PostgreSQL storage. It allows users to simulate investment activities using virtual money without involving real financial transactions.
 After registration and email verification, users receive a virtual starting balance of $100,000. Users can browse available assets, buy and sell assets, manage their holdings and watchlist, view their transaction history, and monitor their portfolio performance.
 The system also provides administrative functionality for managing assets and user accounts. Project 3 extends the platform with BUY/SELL limit orders, concurrent market price simulation, asynchronous notifications, database concurrency protection, investment API rate limiting, and expanded audit logging. Security uses JWT authentication and role-based authorization for USER and ADMIN roles.
 
@@ -32,6 +32,7 @@ The purpose of this application is to provide a safe environment where users can
 - Simulated market price updates and recorded price history
 - Concurrent order execution and market updates using separate managed thread pools
 - Asynchronous SSE notifications after successful transaction commits
+- HTML verification and password-reset emails, welcome emails after activation, and BUY/SELL confirmation emails for direct trades and executed limit orders
 - Transactional audit logs for order placement, cancellation, and execution
 - Database concurrency protection using pessimistic locking
 - Audit logging for important system actions
@@ -160,8 +161,7 @@ When an investment operation completes successfully, the application publishes a
 
 A transactional event listener receives the event after the database transaction has committed.
 
-The notification is then delivered asynchronously using Server-Sent Events (SSE).
-
+The notification is then delivered asynchronously using Server-Sent Events (SSE). Relevant email listeners also use this executor to deliver welcome and transaction confirmation emails after successful commits.
 The thread pool configuration includes:
 
 - Core pool size: 2
@@ -176,7 +176,7 @@ This prevents notification delivery from unnecessarily delaying the main investm
 |---|---:|---:|---:|---|
 | `orderExecutor` | 3 | 5 | 10 | Execute pending limit orders |
 | `marketExecutor` | 3 | 5 | 20 | Update simulated market prices |
-| `notificationExecutor` | 2 | 4 | 20 | Deliver asynchronous SSE notifications |
+| `notificationExecutor` | 2 | 4 | 20 | Deliver asynchronous SSE notifications and event-driven emails |
 
 ## Race Conditions and Thread Safety
 
@@ -238,7 +238,16 @@ These checks are performed after acquiring the relevant database locks.
 
 This prevents duplicate order execution and avoids updating assets that have already been deactivated.
 
-### 5. Transactional Notifications
+### 5. Concurrent REST Request Demonstration
+
+A live demonstration uses two browser tabs signed in as the same test investor. Both tabs submit a POST /portfolio/buy request for two shares of the same asset while competing for a limited virtual cash balance.
+
+For the tested example, the investor started with $1,000 and both BUY requests were submitted close together. One request succeeded and the other was rejected with "Insufficient available funds". The final balance remained non-negative, demonstrating that the portfolio lock and balance validation prevent overspending. Either request can win the lock; success is not tied to a particular browser tab.
+
+For the classroom demonstration, AssetService.buyAsset() contains a temporary Thread.sleep(3000) after the portfolio lock is acquired to make overlapping requests easier to observe. This artificial delay is for the presentation only and must be removed afterward; it is not normal production behavior.
+
+
+### 6. Transactional Notifications
 
 The application uses:
 
@@ -314,6 +323,14 @@ Notification delivery is best-effort. Messages may not be delivered when a user 
 Rejected notification tasks are logged, but notifications are not currently stored for automatic retry.
 
 Financial transactions remain committed even if a notification cannot be delivered.
+
+## Email Notifications
+
+The application uses Spring Mail to send HTML emails for account verification, password resets, and successful account activation. After a successful direct BUY or SELL transaction, or an automatically executed BUY or SELL limit order, it sends an HTML confirmation with the transaction type, asset symbol, quantity, and total amount.
+
+Welcome and transaction-confirmation emails use Spring application events, @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT), and @Async("notificationExecutor"). These messages are attempted only after the related database transaction commits, and email-delivery errors are logged rather than reversing a completed investment. Email delivery is best-effort; an automatic retry mechanism is not implemented.
+
+
 
 ## Audit Logging
 
@@ -566,7 +583,8 @@ Make sure the Spring Boot backend is also running on port `8081` so the frontend
 ## Unsolved Problems
 
 No critical issues have been reported in the covered financial, market-update, notification, and audit integration tests.
-However, the full regression suite must be rerun after the recent rate-limiting changes.
+However, the full regression suite must be rerun following the later rate-limiting, email, and frontend changes. The temporary concurrency-demonstration sleep must also be removed after the presentation.
+
 
 ### Known Limitations
 
@@ -597,11 +615,6 @@ If more development time were available, the application could be extended with 
 - Additional administrative reporting and monitoring features.
 
 ## Credits & External Resources
-
-### Acknowledgments
-
-Special thanks to **Zainab, Instructor Associate**, for her guidance, support, and feedback throughout the development of this project.
-
 
 The following official documentation and resources were used as references during the development of this project:
 
