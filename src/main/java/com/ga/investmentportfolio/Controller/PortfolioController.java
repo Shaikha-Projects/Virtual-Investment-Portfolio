@@ -2,12 +2,10 @@ package com.ga.investmentportfolio.Controller;
 
 import com.ga.investmentportfolio.DTO.Request.BuyAssetRequest;
 import com.ga.investmentportfolio.DTO.Request.SellAssetRequest;
-import com.ga.investmentportfolio.DTO.Response.HoldingResponse;
-import com.ga.investmentportfolio.DTO.Response.PortfolioPerformanceResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionHistoryResponse;
-import com.ga.investmentportfolio.DTO.Response.TransactionResponse;
+import com.ga.investmentportfolio.DTO.Response.*;
 import com.ga.investmentportfolio.Enums.TransactionType;
 import com.ga.investmentportfolio.Service.AssetService;
+import com.ga.investmentportfolio.Service.PortfolioSnapshotService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -15,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +32,7 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 public class PortfolioController {
     private final AssetService assetService;
+    private final PortfolioSnapshotService portfolioSnapshotService;
 
     @Operation(
             summary = "Buy asset",
@@ -114,6 +114,19 @@ public class PortfolioController {
         String emailAddress = authentication.getName();
 
         return assetService.getPortfolioPerformance(emailAddress);
+    }
+
+    //get portfolio performance history
+    @GetMapping("/history")
+    public ResponseEntity<List<PortfolioSnapshotResponse>> getPortfolioHistory(Authentication authentication) {
+
+        //get the logged-in user's email
+        String email = authentication.getName();
+
+        //get portfolio history
+        List<PortfolioSnapshotResponse> history = portfolioSnapshotService.getPortfolioHistory(email);
+
+        return ResponseEntity.ok(history);
     }
 
 
