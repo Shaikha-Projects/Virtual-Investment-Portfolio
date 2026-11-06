@@ -18,6 +18,35 @@ export function positionGain(holding) {
   return Number(holding.currentValue) - Number(holding.quantity) * Number(holding.averageBuyPrice)
 }
 
+export function unrealizedReturn(holding) {
+  const values = [holding?.quantity, holding?.averageBuyPrice, holding?.currentValue]
+  if (!values.every(value => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value)))) return null
+  const [quantity, averageBuyPrice, currentValue] = values.map(Number)
+  const costBasis = quantity * averageBuyPrice
+  if (!Number.isFinite(costBasis) || costBasis <= 0) return null
+  const result = (currentValue - costBasis) / costBasis * 100
+  return Number.isFinite(result) ? result : null
+}
+
+export function holdingPerformers(holdings = []) {
+  let best = null
+  let worst = null
+  for (const holding of holdings) {
+    const returnPercentage = unrealizedReturn(holding)
+    if (returnPercentage === null) continue
+    const position = { holding, returnPercentage }
+    if (!best || returnPercentage > best.returnPercentage) best = position
+    if (!worst || returnPercentage < worst.returnPercentage) worst = position
+  }
+  return { best, worst }
+}
+
+export function formatReturn(value) {
+  if (!Number.isFinite(value)) return '—'
+  const rounded = value.toFixed(2)
+  return `${value > 0 ? '+' : ''}${rounded === '-0.00' ? '0.00' : rounded}%`
+}
+
 export function percentage(value, total) {
   return Number(total) > 0 ? Number(value) / Number(total) * 100 : 0
 }

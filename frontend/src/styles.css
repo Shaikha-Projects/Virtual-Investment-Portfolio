@@ -131,3 +131,11 @@ button.asset-details-link:hover:not(:disabled), button.asset-name-link:hover:not
 .holdings-cost-basis { margin: 0 0 12px; }
 @media (max-width: 540px) { .portfolio-overview > .kpi-grid { grid-template-columns: 1fr; }.portfolio-overview .kpi-heading > span:first-child { max-width: none; }.dashboard-allocation .allocation-content { min-height: 0; } }
 @media (max-width: 540px) { .market-page > .page-heading { flex-wrap: wrap; }.asset-details-summary > .page-heading { flex-wrap: wrap; }.asset-details-price { align-items: flex-start; flex-direction: column; }.asset-details-price .actions { width: 100%; }.asset-history-panel .panel-heading { flex-wrap: wrap; gap: 10px; }.price-chart-label { font-size: 10px; }.price-chart-readout { font-size: 10px; } }
+
+.holding-performance-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+.holding-performance-card { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 11px; background: var(--card); }
+.holding-performance-card h3 { margin: 0 0 12px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.holding-performance-card > strong { font-size: 17px; overflow-wrap: anywhere; }
+.holding-performance-card p { margin: 5px 0 12px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.holding-performance-card > span { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 540px) { .holding-performance-cards { grid-template-columns: 1fr; } }
