@@ -3,10 +3,15 @@ package com.ga.investmentportfolio.Repository;
 import com.ga.investmentportfolio.Enums.OrderStatus;
 import com.ga.investmentportfolio.Enums.PriceAlertStatus;
 import com.ga.investmentportfolio.Model.*;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PriceAlertRepository extends JpaRepository<PriceAlert, Long> {
@@ -15,5 +20,9 @@ public interface PriceAlertRepository extends JpaRepository<PriceAlert, Long> {
 
     //method to retrieve alerts for an asset with a specific status
     List<PriceAlert> findByAssetAndStatus(Asset asset, PriceAlertStatus status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PriceAlert p WHERE p.id = :id")
+    Optional<PriceAlert> findByIdForUpdate(@Param("id") Long id);
 
 }
