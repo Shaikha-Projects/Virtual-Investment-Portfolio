@@ -5,6 +5,7 @@ import com.ga.investmentportfolio.DTO.Response.PriceAlertResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.PriceAlertCondition;
 import com.ga.investmentportfolio.Enums.PriceAlertStatus;
+import com.ga.investmentportfolio.Event.InvestmentNotificationEvent;
 import com.ga.investmentportfolio.Exception.BusinessRuleException;
 import com.ga.investmentportfolio.Exception.InformationNotFoundException;
 import com.ga.investmentportfolio.Model.Asset;
@@ -14,6 +15,7 @@ import com.ga.investmentportfolio.Model.User;
 import com.ga.investmentportfolio.Repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,6 +30,7 @@ public class PriceAlertService {
     private final PortfolioRepository portfolioRepository;
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     //method to create a price alert
@@ -167,6 +170,16 @@ public class PriceAlertService {
                 //mark alert triggered
                 lockedAlert.setStatus(PriceAlertStatus.TRIGGERED);
                 lockedAlert.setTriggeredAt(LocalDateTime.now());
+
+                //publish notification
+                eventPublisher.publishEvent(
+                        new InvestmentNotificationEvent(
+                                lockedAlert.getPortfolio().getUser().getEmailAddress(),
+                                "Price alert triggered: " + asset.getSymbol()
+                                        + " reached $" + newPrice
+                                        + " (target: $" + lockedAlert.getTargetPrice() + ")"
+                        )
+                );
 
             }
 
