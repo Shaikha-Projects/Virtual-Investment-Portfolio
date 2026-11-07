@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -135,5 +136,43 @@ public class PriceAlertService {
 
         //update status
         alert.setStatus(PriceAlertStatus.CANCELLED);
+    }
+
+    //method to check price alerts
+    @Transactional
+    public void checkAlertsForAsset(Asset asset, BigDecimal newPrice) {
+        //retrieve active alerts for this asset
+        List<PriceAlert> alerts = priceAlertRepository.findByAssetAndStatus(asset, PriceAlertStatus.ACTIVE);
+
+        //loop
+        for (PriceAlert alert : alerts) {
+
+            //define trigger conditions above & below
+            boolean aboveReached = alert.getCondition() == PriceAlertCondition.ABOVE && newPrice.compareTo(alert.getTargetPrice()) >= 0;
+            boolean belowReached = alert.getCondition() == PriceAlertCondition.BELOW && newPrice.compareTo(alert.getTargetPrice()) <= 0;
+
+            // Check whether the target price has been reached
+            if (aboveReached || belowReached) {
+                //trigger the alert safely
+
+                //lock alert
+                PriceAlert lockedAlert = priceAlertRepository.findByIdForUpdate(alert.getId())
+                        .orElseThrow(() -> new InformationNotFoundException("Price alert does not exist"));
+
+                //check its status again
+                if (lockedAlert.getStatus() != PriceAlertStatus.ACTIVE) {
+                    continue;
+                }
+
+                //mark alert triggered
+                lockedAlert.setStatus(PriceAlertStatus.TRIGGERED);
+                lockedAlert.setTriggeredAt(LocalDateTime.now());
+
+            }
+
+
+
+        }
+
     }
 }
