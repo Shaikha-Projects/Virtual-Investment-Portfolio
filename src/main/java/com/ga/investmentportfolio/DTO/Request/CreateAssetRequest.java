@@ -1,17 +1,18 @@
 package com.ga.investmentportfolio.DTO.Request;
 
 import com.ga.investmentportfolio.Enums.AssetType;
-import jakarta.persistence.Column;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Getter
+@Setter
+@NoArgsConstructor
 public class CreateAssetRequest {
 
     @NotBlank(message = "Symbol is required")

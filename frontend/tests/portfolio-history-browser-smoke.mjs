@@ -61,7 +61,7 @@ const fixture = `(() => {
       return reply(window.__history, window.__historyError ? 500 : 200)
     }
     if (url.pathname === '/portfolio/performance') return reply({ cashBalance: 100000, holdingsValue: 300, totalPortfolioValue: 100300, totalCostBasis: 200, unrealizedGainLoss: 100, realizedGainLoss: 200, totalGainLoss: 300, totalReturnPercentage: 0.3, ...window.__performance })
-    if (url.pathname === '/portfolio/transactions') return reply({ content: [] })
+    if (url.pathname === '/portfolio/transactions') return reply({ content: [{ transactionId: 1, transactionType: 'BUY', assetSymbol: 'AAPL', quantity: 3, totalAmount: 200, pricePerUnit: 66.67, transactionStatus: 'COMPLETED', createdAt: new Date().toISOString() }] })
     if (url.pathname === '/portfolio/holdings') return reply([{ holdingId: 1, assetId: 1, assetSymbol: 'AAPL', assetName: 'Apple', quantity: 3, currentValue: 300, averageBuyPrice: 66.6667 }])
     return reply([])
   }
@@ -85,15 +85,18 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('.kpi-card').length`), 4)
   assert.equal(await evaluate(`document.querySelector('.overall-return').textContent`), 'Overall Return:+$300.00(+0.30%)')
   assert.ok(await evaluate(`document.querySelector('.overall-return strong').classList.contains('positive')`))
-  assert.ok(await evaluate(`document.querySelector('.holdings-cost-basis').textContent.includes('$200.00')`))
+  assert.equal(await evaluate(`Boolean(document.querySelector('.holdings-cost-basis, .holdings-breakdown')) || document.body.textContent.includes('Holdings breakdown')`), false)
   assert.equal(await evaluate(`document.body.textContent.includes('Historical performance is not available.')`), false)
   assert.deepEqual(await evaluate(`Array.from(document.querySelector('.portfolio-overview').children, element => element.className)`), ['page-heading', 'portfolio-hero', 'kpi-grid', 'card portfolio-history-panel', 'dashboard-allocation', 'activity-grid', 'quick-actions'])
-  for (const [width, columns, activityColumns] of [[1440, 4, 2], [800, 2, 1], [375, 1, 1]]) {
+  for (const [width, columns, activityColumns] of [[1440, 4, 1], [800, 2, 1], [375, 1, 1]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 540 })
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.kpi-grid')).gridTemplateColumns.split(' ').length`), columns)
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.activity-grid')).gridTemplateColumns.split(' ').length`), activityColumns)
+    assert.ok(await evaluate(`Math.abs(document.querySelector('.activity-grid > .card').getBoundingClientRect().width - document.querySelector('.dashboard-allocation').getBoundingClientRect().width) < 1`), 'Recent transactions must use the full available width')
     assert.ok(await evaluate(`document.documentElement.scrollWidth <= ${width}`), 'Dashboard must not overflow horizontally')
   }
+  await evaluate(`document.querySelector('.activity-grid .text-button').click()`); await wait(`document.querySelector('.content h2')?.textContent === 'Transaction History'`)
+  await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-history-panel svg'))`)
   const initialHistoryCalls = await evaluate('window.__historyCalls.length')
   for (const [range, expected] of [['1D', 1], ['1W', 2], ['1M', 3], ['ALL', 4]]) {
     await click(range); await wait(`document.querySelector('button[aria-pressed=true]')?.textContent === '${range}'`)
@@ -139,7 +142,7 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('.kpi-card h3')[3].className`), tone)
   }
   assert.deepEqual(exceptions, [])
-  console.log('PASS dashboard browser: four cards, signed/neutral/missing returns, section order, 4/2/1 responsive columns, quick navigation, authenticated history API, all time filters, keyboard inspection, single snapshot, empty/invalid history, loading and error/retry. Mock API only.')
+  console.log('PASS dashboard browser: four cards, signed/neutral/missing returns, section order, removed holdings breakdown, full-width recent transactions at desktop/tablet/mobile sizes, 4/2/1 summary columns, holdings and recent-transactions navigation, authenticated history API, all time filters, keyboard inspection, single snapshot, empty/invalid history, loading and error/retry. Mock API only.')
 } finally {
   await send('Emulation.clearDeviceMetricsOverride'); socket.close()
 }

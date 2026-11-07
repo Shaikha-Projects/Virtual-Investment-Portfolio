@@ -1,5 +1,5 @@
 import TradeForm from '../components/TradeForm'
-import { positionGain } from '../api/analytics'
+import { formatReturn, holdingPerformers, positionGain, unrealizedReturn } from '../api/analytics'
 import { date, money } from '../api/format'
 import { useAction } from '../hooks/useAction'
 import { useState } from 'react'
@@ -7,10 +7,20 @@ import { query } from '../api/client'
 import { useResource } from '../hooks/useResource'
 import { Alert, Field, Notice, Pager, Resource, Table } from '../components/UI'
 
+function returnColor(value) {
+  return value === null || value === 0 ? 'muted' : value > 0 ? 'positive' : 'negative'
+}
+
 export function Holdings({ api, revision, refresh }) {
   const resource = useResource(api, '/portfolio/holdings', revision)
   const [selected, setSelected] = useState(null)
-  return <section className="card"><div className="page-heading"><div><span className="eyebrow">Investment workspace</span><h2>My Holdings</h2><p className="muted">Your positions, market values, and unrealized returns in one place.</p></div></div>{selected && <TradeForm key={selected.holdingId} selected={selected} mode="sell" api={api} refresh={refresh} close={() => setSelected(null)} />}<Resource resource={resource} empty={!resource.data?.length} emptyText="You have no holdings yet. Browse Assets to start investing."><Table label="My holdings"><thead><tr>{['Symbol', 'Asset', 'Quantity', 'Average Buy Price', 'Current Price', 'Current Value', 'Unrealized P/L', 'Action'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{resource.data?.map(holding => <tr key={holding.holdingId}><th scope="row">{holding.assetSymbol}</th><td>{holding.assetName}</td><td>{holding.quantity}</td><td>{money(holding.averageBuyPrice)}</td><td>{money(holding.currentPrice)}</td><td className="financial-value">{money(holding.currentValue)}</td><td className={positionGain(holding) < 0 ? 'negative' : 'positive'}>{positionGain(holding) >= 0 ? '+' : ''}{money(positionGain(holding))}</td><td><button className="danger" onClick={() => setSelected(holding)} aria-label={`Sell ${holding.assetSymbol}`}>Sell</button></td></tr>)}</tbody></Table></Resource></section>
+  const { best, worst } = holdingPerformers(resource.data || [])
+  return <section className="card"><div className="page-heading"><div><span className="eyebrow">Investment workspace</span><h2>My Holdings</h2><p className="muted">Your positions, market values, and unrealized returns in one place.</p></div></div>{selected && <TradeForm key={selected.holdingId} selected={selected} mode="sell" api={api} refresh={refresh} close={() => setSelected(null)} />}<Resource resource={resource} empty={!resource.data?.length} emptyText="You have no holdings yet. Browse Assets to start investing."><><div className="holding-performance-cards" aria-label="Holding performance">
+      {[['Best Performing', best], ['Worst Performing', worst]].map(([label, position]) => <article className="holding-performance-card" key={label}>
+        <h3>{label}</h3>
+        {position ? <><strong>{position.holding.assetSymbol || '—'}</strong><p>{position.holding.assetName || '—'}</p><span className={returnColor(position.returnPercentage)}>{formatReturn(position.returnPercentage)}</span></> : <p className="muted">Performance unavailable — no holdings with a valid return.</p>}
+      </article>)}
+    </div><Table label="My holdings"><thead><tr>{['Symbol', 'Asset', 'Quantity', 'Average Buy Price', 'Current Price', 'Current Value', 'Unrealized P/L', 'Return (%)', 'Action'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{resource.data?.map(holding => <tr key={holding.holdingId}><th scope="row">{holding.assetSymbol}</th><td>{holding.assetName}</td><td>{holding.quantity}</td><td>{money(holding.averageBuyPrice)}</td><td>{money(holding.currentPrice)}</td><td className="financial-value">{money(holding.currentValue)}</td><td className={positionGain(holding) < 0 ? 'negative' : 'positive'}>{positionGain(holding) >= 0 ? '+' : ''}{money(positionGain(holding))}</td><td className={returnColor(unrealizedReturn(holding))}>{formatReturn(unrealizedReturn(holding))}</td><td><button className="danger" onClick={() => setSelected(holding)} aria-label={`Sell ${holding.assetSymbol}`}>Sell</button></td></tr>)}</tbody></Table></></Resource></section>
 }
 
 export function Transactions({ api, revision }) {

@@ -1,5 +1,9 @@
 export const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '')
 const safeMessages = new Set([
+  'Target price must be higher than current price', 'Target price must be lower than current price',
+  'Only active alerts can be cancelled', 'Price alert does not exist', 'Asset does not exist',
+  'Target price must be greater than 0', 'Target price is required', 'Asset id is required', 'Price alert condition is required',
+  "You cannot cancel another investor's alert",
   'Invalid email or password', 'Please verify your email before logging in', 'Account is inactive',
   'Current password is not correct', 'Asset symbol already exists', 'Insufficient funds',
   'Insufficient quantity to sell', 'Asset is not available for purchase',
@@ -23,6 +27,10 @@ export class ApiError extends Error {
 }
 export function errorMessage(status, body) {
   if (status < 500 && safeMessages.has(body?.message)) return body.message
+  if (status === 400) {
+    const validation = ['assetId', 'targetPrice', 'condition'].map(field => body?.[field]).filter(message => safeMessages.has(message))
+    if (validation.length) return validation.join(' ')
+  }
   return messages[status] || 'The service is temporarily unavailable. Please try again shortly.'
 }
 export function friendlyError(error) {

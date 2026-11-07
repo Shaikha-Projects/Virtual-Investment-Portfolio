@@ -88,9 +88,10 @@ class MarketConcurrencyPostgresTest {
             return factory;
         }
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
-        @Bean MarketPriceUpdateService marketPriceUpdateService(AssetRepository assets, PriceHistoryRepository histories) {
-            return spy(new MarketPriceUpdateService(assets, histories));
+        @Bean MarketPriceUpdateService marketPriceUpdateService(AssetRepository assets, PriceHistoryRepository histories, PriceAlertService priceAlertService) {
+            return spy(new MarketPriceUpdateService(assets, histories, priceAlertService));
         }
+
         @Bean AuditLogService auditLogService() { return mock(AuditLogService.class); }
         @Bean NotificationService notificationService() { return mock(NotificationService.class); }
     }

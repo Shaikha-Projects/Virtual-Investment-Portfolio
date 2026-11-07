@@ -1,3 +1,4 @@
+import { isPriceAlertNotification } from '../api/priceAlerts'
 import Icon from './Icon'
 import { useCallback, useEffect, useState } from 'react'
 import NotificationToasts from './NotificationToasts'
@@ -5,7 +6,7 @@ import { API_BASE } from '../api/client'
 import { createSseParser } from '../api/sse'
 import { useTransactionFeedback } from '../hooks/TransactionFeedback'
 
-export default function Notifications({ session, onLimitOrderExecuted }) {
+export default function Notifications({ session, onLimitOrderExecuted, onPriceAlertTriggered }) {
   const [items, setItems] = useState([])
   const [toasts, setToasts] = useState([])
   const dismissToast = useCallback(id => setToasts(previous => previous.filter(item => item.id !== id)), [])
@@ -17,6 +18,7 @@ export default function Notifications({ session, onLimitOrderExecuted }) {
     const controller = new AbortController()
     const seen = new Set()
     let retryTimer
+    let alertRefreshTimer
     let orderRefreshTimer
     let retry = 1000
     let superseded = false
@@ -43,7 +45,11 @@ export default function Notifications({ session, onLimitOrderExecuted }) {
             if (event.id && seen.has(event.id)) return
             if (event.id) { seen.add(event.id); if (seen.size > 200) seen.delete(seen.values().next().value) }
             // Display normal trades and executed limit orders using the same notification UI.
-            if (!/^(?:(?:Purchase|Sale) completed|Limit (?:BUY|SELL) order executed): [0-9.]+ shares of [A-Za-z0-9.^_/-]{1,30}$/.test(event.data)) return
+            if (!isPriceAlertNotification(event.data) && !/^(?:(?:Purchase|Sale) completed|Limit (?:BUY|SELL) order executed): [0-9.]+ shares of [A-Za-z0-9.^_/-]{1,30}$/.test(event.data)) return
+            if (isPriceAlertNotification(event.data)) {
+              clearTimeout(alertRefreshTimer)
+              alertRefreshTimer = setTimeout(() => { if (!controller.signal.aborted) onPriceAlertTriggered?.() }, 200)
+            }
             const item = { id: event.id || crypto.randomUUID(), text: event.data }
             feedback?.received(event.data)
             setItems(previous => [item, ...previous].slice(0, 30))
@@ -76,8 +82,8 @@ export default function Notifications({ session, onLimitOrderExecuted }) {
       }
     }
     connect()
-    return () => { controller.abort(); clearTimeout(retryTimer); clearTimeout(orderRefreshTimer) }
-  }, [token, api, onLimitOrderExecuted, feedback])
+    return () => { controller.abort(); clearTimeout(retryTimer); clearTimeout(orderRefreshTimer); clearTimeout(alertRefreshTimer) }
+  }, [token, api, onLimitOrderExecuted, onPriceAlertTriggered, feedback])
   return <div className="notifications"><button className="icon-button notification-button" aria-label={`Notifications (${items.length})`} title="Notifications" aria-expanded={open} aria-controls="live-notifications" onClick={() => setOpen(value => !value)}><Icon name="bell" size={21} />{items.length > 0 && <span className="notification-count">{items.length}</span>}</button>
     <NotificationToasts items={toasts} onDismiss={dismissToast} />
     {open && <section id="live-notifications" className="notification-panel" aria-label="Live notifications"><div className="panel-heading"><h2>Notifications</h2><button className="icon-button" aria-label="Close notifications" onClick={() => setOpen(false)}><Icon name="close" size={17} /></button></div><p className="muted" role="status">{status}</p><p className="muted">Live events from this session only.</p>{items.length ? <ul>{items.map(item => <li key={item.id}>{item.text}</li>)}</ul> : <p>No notifications received yet.</p>}<button className="text-button" onClick={() => setItems([])}>Clear notifications</button></section>}
