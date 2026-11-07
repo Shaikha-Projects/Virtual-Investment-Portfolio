@@ -108,4 +108,32 @@ public class PriceAlertService {
 
         return responses;
     }
+
+    //method to cancel alert
+    @Transactional
+    public void cancelAlert(String email, Long alertId) {
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //retrieve alert, lock price alerts bt id
+        PriceAlert alert = priceAlertRepository.findByIdForUpdate(alertId)
+                .orElseThrow(() -> new InformationNotFoundException("Price alert does not exist"));
+
+        //check portfolio ownership
+        if (!alert.getPortfolio().getId().equals(portfolio.getId())) {
+            throw new BusinessRuleException("You cannot cancel another investor's alert");
+        }
+
+        //validate alert status
+        if (alert.getStatus() != PriceAlertStatus.ACTIVE) {
+            throw new BusinessRuleException("Only active alerts can be cancelled");
+        }
+
+        //update status
+        alert.setStatus(PriceAlertStatus.CANCELLED);
+    }
 }
