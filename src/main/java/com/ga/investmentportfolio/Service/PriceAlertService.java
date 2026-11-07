@@ -142,7 +142,7 @@ public class PriceAlertService {
     @Transactional
     public void checkAlertsForAsset(Asset asset, BigDecimal newPrice) {
         //retrieve active alerts for this asset
-        List<PriceAlert> alerts = priceAlertRepository.findByAssetAndStatus(asset, PriceAlertStatus.ACTIVE);
+        List<PriceAlert> alerts = priceAlertRepository.findByAssetAndStatusOrderByIdAsc(asset, PriceAlertStatus.ACTIVE);
 
         //loop
         for (PriceAlert alert : alerts) {

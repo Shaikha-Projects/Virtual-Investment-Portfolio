@@ -19,7 +19,7 @@ public interface PriceAlertRepository extends JpaRepository<PriceAlert, Long> {
     List<PriceAlert> findByPortfolioOrderByCreatedAtDesc(Portfolio portfolio);
 
     //method to retrieve alerts for an asset with a specific status
-    List<PriceAlert> findByAssetAndStatus(Asset asset, PriceAlertStatus status);
+    List<PriceAlert> findByAssetAndStatusOrderByIdAsc(Asset asset, PriceAlertStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PriceAlert p WHERE p.id = :id")
