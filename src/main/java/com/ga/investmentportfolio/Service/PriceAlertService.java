@@ -1,6 +1,7 @@
 package com.ga.investmentportfolio.Service;
 
 import com.ga.investmentportfolio.DTO.Request.PriceAlertRequest;
+import com.ga.investmentportfolio.DTO.Response.PriceAlertResponse;
 import com.ga.investmentportfolio.Enums.AssetStatus;
 import com.ga.investmentportfolio.Enums.PriceAlertCondition;
 import com.ga.investmentportfolio.Enums.PriceAlertStatus;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -74,5 +77,35 @@ public class PriceAlertService {
         //save it
         priceAlertRepository.save(priceAlert);
 
+    }
+
+    //method to get all alerts
+    @Transactional
+    public List<PriceAlertResponse> getAlerts(String email){
+        //find user by email
+        User user = userRepository.findByEmailAddress(email)
+                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        //get user portfolio
+        Portfolio portfolio = user.getPortfolio();
+
+        //get user alerts
+        List<PriceAlert> alerts = priceAlertRepository.findByPortfolioOrderByCreatedAtDesc(portfolio);
+
+        //convert into response dto
+        List<PriceAlertResponse> responses = new ArrayList<>();
+
+        for (PriceAlert alert : alerts) {
+            //create a PriceAlertRespon
+            PriceAlertResponse response = new PriceAlertResponse(
+                    alert.getId(), alert.getAsset().getSymbol(), alert.getAsset().getName(),
+                    alert.getTargetPrice(), alert.getCondition(), alert.getStatus(),
+                    alert.getCreatedAt(), alert.getTriggeredAt()
+            );
+            //add the response to the responses list
+            responses.add(response);
+        }
+
+        return responses;
     }
 }
