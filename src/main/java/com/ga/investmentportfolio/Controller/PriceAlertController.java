@@ -7,6 +7,7 @@ import com.ga.investmentportfolio.Service.PriceAlertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/price-alerts")
 @RequiredArgsConstructor
+@Tag(name = "Price Alert", description = "view alerts, create price alert, cancel price alert")
 public class PriceAlertController {
     private final PriceAlertService priceAlertService;
 

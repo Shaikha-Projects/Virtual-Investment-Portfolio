@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class MarketPriceUpdateServiceTest {
-    final MarketPriceUpdateService service = new MarketPriceUpdateService(mock(AssetRepository.class), mock(PriceHistoryRepository.class));
+    final MarketPriceUpdateService service = new MarketPriceUpdateService(mock(AssetRepository.class), mock(PriceHistoryRepository.class), mock(PriceAlertService.class)) ;
 
     @Test void generatedPricesRespectChangeRangeAndMoneyScale() {
         for (int i = 0; i < 100; i++) {
