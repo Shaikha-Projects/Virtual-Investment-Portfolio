@@ -19,6 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class MarketPriceUpdateService {
     private final AssetRepository assetRepository;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final PriceAlertService priceAlertService;
 
     //method to calculate random price changes
     public BigDecimal calculateNewPrice(BigDecimal currentPrice) {
@@ -70,5 +71,11 @@ public class MarketPriceUpdateService {
         history.setPrice(newPrice);
         priceHistoryRepository.save(history);
 
+        //check matching price alerts using priceAlertService
+        priceAlertService.checkAlertsForAsset(asset, newPrice);
+
+        //mark matching alerts TRIGGERED
+
+        //commit transaction
     }
 }
