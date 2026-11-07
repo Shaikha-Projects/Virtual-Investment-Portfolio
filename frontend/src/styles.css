@@ -138,3 +138,8 @@ button.asset-details-link:hover:not(:disabled), button.asset-name-link:hover:not
 .holding-performance-card p { margin: 5px 0 12px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .holding-performance-card > span { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (max-width: 540px) { .holding-performance-cards { grid-template-columns: 1fr; } }
+.price-alerts-page > .card { margin-bottom: 20px; }
+.price-alert-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 16px; }
+.alert-asset-name { display: block; color: var(--muted); font-weight: 400; margin-top: 5px; }
+.price-alert-status.triggered { color: var(--cyan); }
+@media (max-width: 800px) { .price-alert-fields { grid-template-columns: 1fr; } }

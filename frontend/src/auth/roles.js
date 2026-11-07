@@ -22,6 +22,7 @@ const workspaces = {
       ['transactions', 'Transactions', 'transactions'],
       ['orders', 'My Orders', 'clock'],
       ['watchlist', 'Watchlist', 'watchlist'],
+      ['price-alerts', 'Price Alerts', 'bell'],
       profile,
     ],
     investmentNotifications: true,
