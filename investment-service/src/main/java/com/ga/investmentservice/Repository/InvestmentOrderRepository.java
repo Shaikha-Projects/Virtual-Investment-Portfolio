@@ -18,7 +18,7 @@ import java.util.Optional;
 @Repository
 public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder, Long> {
     //method to retrieve orders belonging to the investor's portfolio
-    List<InvestmentOrder> findByPortfolioOrderByCreatedAtDesc(Portfolio portfolio);
+    List<InvestmentOrder> findByPortfolio_UserIdOrderByCreatedAtDesc(Portfolio portfolio);
 
     //method to retrieve orders by their status
     List<InvestmentOrder> findByStatus(OrderStatus status);
