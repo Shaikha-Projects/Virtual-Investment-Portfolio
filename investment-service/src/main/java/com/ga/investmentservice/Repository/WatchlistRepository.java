@@ -11,11 +11,11 @@ import java.util.Optional;
 @Repository
 public interface WatchlistRepository extends JpaRepository<Watchlist, Long> {
 
-    boolean existsByUserAndAsset(Long userId, Asset asset);
+    boolean existsByUserIdAndAsset(Long userId, Asset asset);
 
-    List<Watchlist> findByUser(Long userId);
+    List<Watchlist> findByUserId(Long userId);
 
     //find by watchlist record id and user
-    Optional<Watchlist> findByIdAndUser(Long id, Long userId);
+    Optional<Watchlist> findByIdAndUserId(Long id, Long userId);
 
 }
