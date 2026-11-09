@@ -18,7 +18,7 @@ import java.util.Optional;
 @Repository
 public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder, Long> {
     //method to retrieve orders belonging to the investor's portfolio
-    List<InvestmentOrder> findByPortfolio_UserIdOrderByCreatedAtDesc(Portfolio portfolio);
+    List<InvestmentOrder> findByPortfolioOrderByCreatedAtDesc(Portfolio portfolio);
 
     //method to retrieve orders by their status
     List<InvestmentOrder> findByStatus(OrderStatus status);
@@ -28,5 +28,5 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
     @Query("SELECT o FROM InvestmentOrder o WHERE o.id = :orderId")
     Optional<InvestmentOrder> findByIdForUpdate(@Param("orderId") Long orderId);
 
-    Page<InvestmentOrder> findByPortfolioUserEmailAddressOrderByCreatedAtDesc(String email, Pageable pageable);
+    Page<InvestmentOrder> findByPortfolio_UserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }
