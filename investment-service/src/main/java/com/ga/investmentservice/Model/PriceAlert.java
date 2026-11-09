@@ -1,7 +1,7 @@
-package com.ga.investmentportfolio.Model;
+package com.ga.investmentservice.Model;
 
-import com.ga.investmentportfolio.Enums.PriceAlertCondition;
-import com.ga.investmentportfolio.Enums.PriceAlertStatus;
+import com.ga.investmentservice.Enums.PriceAlertCondition;
+import com.ga.investmentservice.Enums.PriceAlertStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
