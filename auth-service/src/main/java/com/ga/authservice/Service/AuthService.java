@@ -155,6 +155,15 @@ public class AuthService {
         //save it
         outboxEventRepository.save(outboxEvent);
 
+        //welcome email
+        WelcomeEmailEvent welcomeEvent = new WelcomeEmailEvent(user.getEmailAddress());
+
+        OutboxEvent welcomeOutbox = new OutboxEvent();
+        welcomeOutbox.setEventType("WELCOME_EMAIL");
+        welcomeOutbox.setPayload(objectMapper.writeValueAsString(welcomeEvent));
+
+        outboxEventRepository.save(welcomeOutbox);
+
     }
 
     public LoginResponse login(LoginRequest request){
