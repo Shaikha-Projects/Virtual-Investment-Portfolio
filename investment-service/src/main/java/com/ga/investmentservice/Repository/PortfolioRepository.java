@@ -16,4 +16,6 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Portfolio p WHERE p.id = :portfolioId")
     Optional<Portfolio> findByIdForUpdate(@Param("portfolioId") Long portfolioId);
+
+    boolean existsByUserId(Long userId);
 }
