@@ -22,7 +22,7 @@ public class WelcomeEmailConsumer {
             //extract email
             String email = event.get("emailAddress").asText();
 
-            //send verification email
+            //send email
             emailService.sendWelcomeEmail(email);
 
         } catch (JacksonException e) {
