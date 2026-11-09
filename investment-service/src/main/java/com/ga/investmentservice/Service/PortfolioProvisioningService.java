@@ -4,6 +4,8 @@ import com.ga.investmentservice.Repository.PortfolioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
+
 
 import java.math.BigDecimal;
 
@@ -14,18 +16,6 @@ public class PortfolioProvisioningService {
 
     @Transactional
     public void createPortfolio(Long userId) {
-        //check if portfolio exists
-        if (portfolioRepository.existsByUserId(userId)) {
-            return;
-        }
-
-        //create portfolio
-        Portfolio portfolio = new Portfolio();
-
-        portfolio.setUserId(userId);
-        portfolio.setCashBalance(new BigDecimal("100000.00"));
-        portfolio.setReservedCash(BigDecimal.ZERO);
-
-        portfolioRepository.save(portfolio);
+        portfolioRepository.createInitialPortfolio(userId);
     }
 }
