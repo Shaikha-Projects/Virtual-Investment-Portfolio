@@ -24,7 +24,7 @@ public class PasswordResetEmailConsumer {
             String email = event.get("emailAddress").asText();
             String token = event.get("token").asText();
 
-            //send verification email
+            //send email
             emailService.sendPasswordResetEmail(email, token);
 
         } catch (JacksonException e) {
