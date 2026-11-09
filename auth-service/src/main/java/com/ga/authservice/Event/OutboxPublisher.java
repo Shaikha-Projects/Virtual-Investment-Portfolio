@@ -32,6 +32,7 @@ public class OutboxPublisher {
                 case "VERIFICATION_EMAIL" -> "auth.verification-email";
                 case "PASSWORD_RESET_EMAIL" -> "auth.password-reset-email";
                 case "USER_VERIFIED" -> "auth.user-verified";
+                case "WELCOME_EMAIL" -> "auth.welcome-email";
                 default -> throw new IllegalArgumentException(
                         "Unknown event type: " + event.getEventType());
             };
