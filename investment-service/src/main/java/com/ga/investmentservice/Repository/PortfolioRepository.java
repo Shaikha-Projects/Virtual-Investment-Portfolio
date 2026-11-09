@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -18,4 +21,13 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     Optional<Portfolio> findByIdForUpdate(@Param("portfolioId") Long portfolioId);
 
     boolean existsByUserId(Long userId);
+
+    @Modifying
+    @Query(value = """
+        INSERT INTO portfolios
+        (user_id, cash_balance, reserved_cash, created_at, updated_at)
+        VALUES (:userId, 100000.00, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO NOTHING
+        """, nativeQuery = true)
+    int createInitialPortfolio(@Param("userId") Long userId);
 }
