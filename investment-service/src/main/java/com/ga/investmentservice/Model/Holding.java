@@ -1,4 +1,4 @@
-package com.ga.investmentportfolio.Model;
+package com.ga.investmentservice.Model;
 
 import jakarta.persistence.*;
 import lombok.*;
