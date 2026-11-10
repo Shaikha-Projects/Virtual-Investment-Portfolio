@@ -38,7 +38,9 @@ class InvestmentSecurityTest {
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
-    @Import({SecurityConfiguration.class, CurrentUser.class, TestController.class})
+    @Import({SecurityConfiguration.class, CurrentUser.class, TestController.class,
+            com.ga.investmentservice.Filter.InvestmentRateLimitFilter.class,
+            com.ga.investmentservice.Service.RateLimitService.class})
     static class Config {
         @Bean AuthServiceClient authServiceClient() { return mock(AuthServiceClient.class); }
         @Bean static org.springframework.context.support.PropertySourcesPlaceholderConfigurer properties() {
