@@ -8,6 +8,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import java.math.BigDecimal;
 
@@ -224,6 +225,57 @@ public class EmailService {
             throw new MailSendException("Failed to prepare welcome email", e);
         }
 
+    }
+
+    //send email when a price alert is triggered
+    public void sendPriceAlertEmail(String emailAddress, String alertMessage) {
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(emailAddress);
+            helper.setSubject("Investment Price Alert");
+
+            String emailBody = """
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 30px;">
+
+            <div style="background-color: white; padding: 30px;
+                        border-radius: 10px; max-width: 500px; margin: auto;">
+
+                <h2 style="color: #1e3a5f;">
+                    Virtual Investment Portfolio
+                </h2>
+
+                <h3>Price Alert Triggered</h3>
+
+                <div style="background-color: #eef3f9; padding: 20px;
+                            border-radius: 8px;">
+                    <p>%s</p>
+                </div>
+
+                <hr>
+
+                <p style="font-size: 11px; color: #999;">
+                    Virtual Investment Portfolio System<br>
+                    Investment simulation only. No real money is involved.
+                </p>
+
+            </div>
+        </body>
+        </html>
+        """.formatted(HtmlUtils.htmlEscape(alertMessage));
+
+            //set HTML email body
+            helper.setText(emailBody, true);
+
+            //send price alert email
+            javaMailSender.send(message);
+
+        } catch (MessagingException e) {
+            throw new MailSendException("Failed to prepare price alert email", e);
+        }
     }
 
     //send transaction email for BUY and SELL confirmations
