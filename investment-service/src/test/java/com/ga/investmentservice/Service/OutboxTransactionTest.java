@@ -1,6 +1,8 @@
 package com.ga.investmentservice.Service;
 
 import com.ga.investmentservice.Enums.*;
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import com.ga.investmentservice.Event.TransactionCompletedEvent;
 import com.ga.investmentservice.Model.*;
 import com.ga.investmentservice.Repository.*;
@@ -40,16 +42,17 @@ class OutboxTransactionTest {
         @Bean OutboxEventRepository outbox() { return mock(OutboxEventRepository.class); }
         @Bean AuditLogRepository audits() { return mock(AuditLogRepository.class); }
         @Bean TradeExecutionService trades() { return mock(TradeExecutionService.class); }
+        @Bean AuthServiceClient authServiceClient() { return mock(AuthServiceClient.class); }
         @Bean InvestmentEventService events(OutboxEventRepository outbox) {
             return new InvestmentEventService(outbox, JsonMapper.builder().build());
         }
-        @Bean AuditLogService audit(AuditLogRepository audits, PortfolioRepository portfolios) {
-            return new AuditLogService(audits, portfolios);
+        @Bean AuditLogService audit(AuditLogRepository audits) {
+            return new AuditLogService(audits);
         }
         @Bean OrderExecutionService execution(InvestmentOrderRepository orders, PortfolioRepository portfolios,
                 HoldingRepository holdings, TradeExecutionService trades, InvestmentEventService events,
-                AuditLogService audit, AssetRepository assets) {
-            OrderExecutionService service = new OrderExecutionService(orders, portfolios, holdings, trades, events, audit, assets);
+                AuditLogService audit, AssetRepository assets, AuthServiceClient authServiceClient) {
+            OrderExecutionService service = new OrderExecutionService(orders, portfolios, holdings, trades, events, audit, assets, authServiceClient);
             ReflectionTestUtils.setField(service, "entityManager", mock(EntityManager.class));
             return service;
         }
@@ -103,8 +106,10 @@ class OutboxTransactionTest {
         order.setLimitPrice(new BigDecimal("10.00"));
         order.setStatus(OrderStatus.PENDING);
         when(context.getBean(InvestmentOrderRepository.class).findByIdForUpdate(7L)).thenReturn(Optional.of(order));
+        when(context.getBean(InvestmentOrderRepository.class).findOrderOwnerId(7L)).thenReturn(Optional.of(42L));
         when(context.getBean(PortfolioRepository.class).findByIdForUpdate(5L)).thenReturn(Optional.of(portfolio));
-        when(context.getBean(PortfolioRepository.class).findUserEmailByUserId(42L)).thenReturn(Optional.of("owner@example.com"));
+        when(context.getBean(AuthServiceClient.class).getUserById(42L)).thenReturn(
+                new UserIdentityResponse(42L, "owner@example.com", "USER", "ACTIVE"));
         when(context.getBean(AssetRepository.class).findByIdForUpdate(1L)).thenReturn(Optional.of(asset));
         when(context.getBean(AuditLogRepository.class).save(any(AuditLog.class))).thenAnswer(call -> {
             recordOnCommit("AUDIT");
