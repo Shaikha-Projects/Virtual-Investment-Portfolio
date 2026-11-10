@@ -3,10 +3,8 @@ package com.ga.investmentservice.Service;
 import com.ga.investmentservice.Enums.AuditAction;
 import com.ga.investmentservice.Model.AuditLog;
 import com.ga.investmentservice.Repository.AuditLogRepository;
-import com.ga.investmentservice.Repository.PortfolioRepository;
 import com.ga.investmentservice.Model.InvestmentOrder;
 import com.ga.investmentservice.Enums.OrderStatus;
-import com.ga.investmentservice.Exception.InformationNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 import com.ga.investmentservice.Security.AuthenticatedUser;
@@ -26,7 +24,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
-    private final PortfolioRepository portfolioRepository;
 
     public void log(String userEmail, AuditAction action, String details) {
         //verify the audit actor using the identity established by Investment security
@@ -53,12 +50,15 @@ public class AuditLogService {
 
     //background orders have no HTTP identity; use their stored owner and a fixed audit action
     @Transactional(propagation = Propagation.MANDATORY)
-    void logOrderExecution(InvestmentOrder order, String details) {
+    void logOrderExecution(InvestmentOrder order, String userEmail, String details) {
+
         if (order.getId() == null || order.getStatus() != OrderStatus.FILLED) {
             throw new IllegalArgumentException("Only filled orders can be audited as executed");
         }
-        String userEmail = portfolioRepository.findUserEmailByUserId(order.getPortfolio().getUserId())
-                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new IllegalArgumentException("User email is required");
+        }
 
         AuditLog auditLog = new AuditLog();
         auditLog.setUserEmail(userEmail);
