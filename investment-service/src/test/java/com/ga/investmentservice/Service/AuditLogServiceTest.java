@@ -24,8 +24,7 @@ import static org.mockito.Mockito.*;
 
 class AuditLogServiceTest {
     private final AuditLogRepository auditLogRepository = mock(AuditLogRepository.class);
-    private final AuditLogService auditLogService = new AuditLogService(auditLogRepository,
-            mock(com.ga.investmentservice.Repository.PortfolioRepository.class));
+    private final AuditLogService auditLogService = new AuditLogService(auditLogRepository);
 
     @AfterEach
     void clearIdentity() {
