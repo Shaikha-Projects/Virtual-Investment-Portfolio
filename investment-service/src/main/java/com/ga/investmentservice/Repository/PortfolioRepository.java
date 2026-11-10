@@ -22,6 +22,12 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
 
     boolean existsByUserId(Long userId);
 
+    Optional<Portfolio> findByUserId(Long userId);
+
+    //resolve background notification recipients without Authentication's User entity
+    @Query(value = "SELECT email_address FROM users WHERE id = :userId", nativeQuery = true)
+    Optional<String> findUserEmailByUserId(@Param("userId") Long userId);
+
     @Modifying
     @Query(value = """
         INSERT INTO portfolios
