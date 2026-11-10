@@ -1,6 +1,7 @@
 package com.ga.investmentservice.Service;
 
 import com.ga.investmentservice.Config.ThreadPoolConfig;
+import com.ga.investmentservice.Controller.AdminAssetController;
 import com.ga.investmentservice.Enums.OrderStatus;
 import com.ga.investmentservice.Model.InvestmentOrder;
 import com.ga.investmentservice.Repository.*;
@@ -84,7 +85,8 @@ class OrderSchedulerTest {
             service.executePendingOrders(); await(entered);
             assertEquals(1, pool.getThreadPoolExecutor().getQueue().size());
             Future<?> first = callers.submit(service::executePendingOrders);
-            Future<?> second = callers.submit(service::executePendingOrders);
+            AdminAssetController controller = new AdminAssetController(mock(AssetService.class), service);
+            Future<?> second = callers.submit(controller::executePendingOrders);
             first.get(10, TimeUnit.SECONDS); second.get(10, TimeUnit.SECONDS);
             assertEquals(1, pool.getThreadPoolExecutor().getQueue().size());
             for (long id : new long[]{1, 2, 3}) verify(execution).executeSingleOrder(id);
