@@ -12,6 +12,8 @@ import com.ga.investmentservice.Model.Holding;
 import com.ga.investmentservice.Model.InvestmentOrder;
 import com.ga.investmentservice.Model.Portfolio;
 import com.ga.investmentservice.Repository.*;
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -34,6 +36,7 @@ public class OrderExecutionService {
     private final InvestmentEventService investmentEventService;
     private final AuditLogService auditLogService;
     private final AssetRepository assetRepository;
+    private final AuthServiceClient authServiceClient;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -44,6 +47,19 @@ public class OrderExecutionService {
         // add log for testing
         log.info("Starting order execution - orderId: {}, thread: {}", orderId, Thread.currentThread().getName());
 
+        //find the order owner before locking
+        Long ownerId = investmentOrderRepository.findOrderOwnerId(orderId)
+                .orElseThrow(() -> new InformationNotFoundException("Order not found"));
+
+        //get user information from Authentication using REST Client
+        UserIdentityResponse user = authServiceClient.getUserById(ownerId);
+
+        if (!ownerId.equals(user.userId())) {
+            throw new IllegalStateException("Order owner does not match Authentication");
+        }
+
+        String email = user.emailAddress();
+
         //retrieve order
         InvestmentOrder lockedOrder = investmentOrderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new InformationNotFoundException("Order not found"));
@@ -53,9 +69,10 @@ public class OrderExecutionService {
             return;
         }
 
-        //background execution resolves the recipient from the stored portfolio owner
-        String email = portfolioRepository.findUserEmailByUserId(lockedOrder.getPortfolio().getUserId())
-                .orElseThrow(() -> new InformationNotFoundException("User does not exist"));
+        //verify the order still belongs to the resolved user
+        if (!lockedOrder.getPortfolio().getUserId().equals(ownerId)) {
+            throw new IllegalStateException("Order owner changed");
+        }
 
         //get asset current price and order's limit price
         BigDecimal currentPrice = lockedOrder.getAsset().getCurrentPrice();
@@ -110,7 +127,7 @@ public class OrderExecutionService {
             lockedOrder.setExecutedAt(LocalDateTime.now());
 
             //save EXECUTE_LIMIT_ORDER audit log
-            auditLogService.logOrderExecution(lockedOrder,
+            auditLogService.logOrderExecution(lockedOrder, email,
                     "Executed BUY limit order #" + lockedOrder.getId()
                             + " for " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol()
             );
@@ -186,7 +203,7 @@ public class OrderExecutionService {
             lockedOrder.setExecutedAt(LocalDateTime.now());
 
             //save EXECUTE_LIMIT_ORDER audit log
-             auditLogService.logOrderExecution(lockedOrder,
+             auditLogService.logOrderExecution(lockedOrder, email,
                     "Executed SELL limit order #" + lockedOrder.getId()
                             + " for " + lockedOrder.getQuantity() + " shares of " + lockedOrder.getAsset().getSymbol()
             );
