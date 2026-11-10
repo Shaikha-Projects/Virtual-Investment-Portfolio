@@ -1,5 +1,6 @@
 package com.ga.investmentservice.Service;
 
+import com.ga.investmentservice.Event.InvestmentNotificationEvent;
 import com.ga.investmentservice.Event.PriceAlertTriggeredEvent;
 import com.ga.investmentservice.Event.TransactionCompletedEvent;
 import com.ga.investmentservice.Model.OutboxEvent;
@@ -40,6 +41,21 @@ public class InvestmentEventService {
 
         //set its type
         outboxEvent.setEventType("PRICE_ALERT_TRIGGERED");
+
+        //convert transaction details into JSON
+        outboxEvent.setPayload(jsonMapper.writeValueAsString(event));
+
+        //save it
+        outboxEventRepository.save(outboxEvent);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void saveInvestmentNotificationEvent(InvestmentNotificationEvent event) {
+        //create a new outbox event
+        OutboxEvent outboxEvent = new OutboxEvent();
+
+        //set its type
+        outboxEvent.setEventType("INVESTMENT_NOTIFICATION");
 
         //convert transaction details into JSON
         outboxEvent.setPayload(jsonMapper.writeValueAsString(event));
