@@ -8,8 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -23,10 +21,6 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     boolean existsByUserId(Long userId);
 
     Optional<Portfolio> findByUserId(Long userId);
-
-    //resolve background notification recipients without Authentication's User entity
-    @Query(value = "SELECT email_address FROM users WHERE id = :userId", nativeQuery = true)
-    Optional<String> findUserEmailByUserId(@Param("userId") Long userId);
 
     @Modifying
     @Query(value = """
