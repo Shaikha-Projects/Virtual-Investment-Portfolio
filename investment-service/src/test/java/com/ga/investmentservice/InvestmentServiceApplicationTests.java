@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.ga.investmentservice.Repository.*;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.ga.investmentservice.Client.AuthServiceClient;
 import org.springframework.kafka.core.KafkaTemplate;
 
 @SpringBootTest(properties = {
@@ -15,7 +15,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 @MockitoBean(types = {AssetRepository.class, HoldingRepository.class, TransactionRepository.class,
         PortfolioRepository.class, InvestmentOrderRepository.class, PortfolioSnapshotRepository.class,
         PriceAlertRepository.class, PriceHistoryRepository.class, WatchlistRepository.class,
-        AuditLogRepository.class, OutboxEventRepository.class, JdbcTemplate.class, KafkaTemplate.class,
+        AuditLogRepository.class, OutboxEventRepository.class, AuthServiceClient.class, KafkaTemplate.class,
         jakarta.persistence.EntityManagerFactory.class})
 class InvestmentServiceApplicationTests {
 
