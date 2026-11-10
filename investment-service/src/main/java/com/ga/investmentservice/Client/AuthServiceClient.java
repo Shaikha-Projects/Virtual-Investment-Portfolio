@@ -6,6 +6,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -50,8 +51,8 @@ public class AuthServiceClient {
 
             return validateUser(user);
 
-        } catch (RestClientException e) {
-            throw new IllegalStateException("Authentication service request failed", e);
+        }catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalArgumentException("User does not exist", e);
         }
     }
 
@@ -72,9 +73,8 @@ public class AuthServiceClient {
 
             return validateUser(user);
 
-        } catch (RestClientException e) {
-            throw new IllegalStateException(
-                    "Authentication service request failed", e);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalArgumentException("User does not exist", e);
         }
     }
 
