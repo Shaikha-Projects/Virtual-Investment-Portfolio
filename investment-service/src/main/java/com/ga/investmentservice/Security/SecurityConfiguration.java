@@ -3,13 +3,13 @@ package com.ga.investmentservice.Security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.*;
+import com.ga.investmentservice.Client.AuthServiceClient;
 
 import java.util.List;
 
@@ -17,9 +17,8 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfiguration {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbc,
-                                            @Value("${jwt-secret}") String secret) throws Exception {
-        return http.cors(cors -> {})
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AuthServiceClient authServiceClient,
+                                            @Value("${jwt-secret}") String secret) throws Exception {        return http.cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
@@ -30,8 +29,8 @@ public class SecurityConfiguration {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/portfolio/**", "/orders/**", "/price-alerts/**", "/watchlist/**").hasRole("USER")
                         .anyRequest().authenticated())
-                .addFilterBefore(new JwtAuthenticationFilter(secret, jdbc), UsernamePasswordAuthenticationFilter.class)
-                .build();
+            .addFilterBefore(new JwtAuthenticationFilter(secret, authServiceClient), UsernamePasswordAuthenticationFilter.class)
+            .build();
     }
 
     @Bean
