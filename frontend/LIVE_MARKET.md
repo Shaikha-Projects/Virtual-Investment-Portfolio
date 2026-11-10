@@ -41,7 +41,7 @@ and run each script with Node, sequentially against the same browser.
 
 ## Manual verification against the real backend
 
-1. Start the existing backend normally. Configure `VITE_API_BASE_URL` as already
+1. Start Authentication (8084), Investment (8085), and Notification (8083). Configure the three `VITE_*_BASE_URL` settings as already
    documented by the application, then run `npm install` and `npm run dev` here.
 2. Log in as USER. Check the Dashboard is unchanged and contains no price-history chart.
 3. Open Assets. Search/filter/sort, then observe prices for at least 20 seconds.
