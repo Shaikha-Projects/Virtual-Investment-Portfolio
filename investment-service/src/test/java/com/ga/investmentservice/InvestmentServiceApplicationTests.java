@@ -24,6 +24,30 @@ class InvestmentServiceApplicationTests {
 	}
 
 	@org.springframework.beans.factory.annotation.Autowired
+	private org.springframework.web.context.WebApplicationContext webApplicationContext;
+
+	@Test
+	void swaggerIsPublicWithBearerSchemeAndBusinessEndpointsStayProtected() throws Exception {
+		var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(webApplicationContext)
+				.addFilters(webApplicationContext.getBean(org.springframework.security.web.FilterChainProxy.class)).build();
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/swagger-ui.html"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is3xxRedirection());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/swagger-ui/index.html"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/v3/api-docs/swagger-config"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/v3/api-docs"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"));
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/assets"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/admin/assets"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
 	private com.ga.investmentservice.Service.AssetService assetService;
 
 	@Test
