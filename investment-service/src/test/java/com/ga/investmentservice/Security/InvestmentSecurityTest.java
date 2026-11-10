@@ -4,9 +4,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.*;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.web.client.ResourceAccessException;
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,17 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InvestmentSecurityTest {
     private static final String SECRET = Base64.getEncoder().encodeToString(new byte[32]);
     private static final String EMAIL = "investor@example.com";
-    private static final String USER_QUERY = "select id, email_address, role from users where email_address = ? and status = 'ACTIVE'";
     private AnnotationConfigWebApplicationContext context;
     private MockMvc mvc;
-    private JdbcTemplate jdbc;
+    private AuthServiceClient authServiceClient;
 
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
     @Import({SecurityConfiguration.class, CurrentUser.class, TestController.class})
     static class Config {
-        @Bean JdbcTemplate jdbc() { return mock(JdbcTemplate.class); }
+        @Bean AuthServiceClient authServiceClient() { return mock(AuthServiceClient.class); }
         @Bean static org.springframework.context.support.PropertySourcesPlaceholderConfigurer properties() {
             var config = new org.springframework.context.support.PropertySourcesPlaceholderConfigurer();
             var values = new Properties();
@@ -80,8 +79,8 @@ class InvestmentSecurityTest {
         context.setServletContext(new MockServletContext());
         context.register(Config.class);
         context.refresh();
-        jdbc = context.getBean(JdbcTemplate.class);
-        clearInvocations(jdbc);
+        authServiceClient = context.getBean(AuthServiceClient.class);
+        clearInvocations(authServiceClient);
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean(FilterChainProxy.class)).build();
     }
@@ -102,20 +101,12 @@ class InvestmentSecurityTest {
     }
 
     private void activeUser(String role) throws Exception {
-        //Exercise the actual row mapper as well as the exact parameterized ACTIVE-only query.
-        when(jdbc.query(eq(USER_QUERY), org.mockito.ArgumentMatchers.<RowMapper<AuthenticatedUser>>any(), eq(EMAIL)))
-                .thenAnswer(call -> {
-                    ResultSet row = mock(ResultSet.class);
-                    when(row.getLong("id")).thenReturn(42L);
-                    when(row.getString("email_address")).thenReturn(EMAIL);
-                    when(row.getString("role")).thenReturn(role);
-                    RowMapper<AuthenticatedUser> mapper = call.getArgument(1);
-                    return List.of(mapper.mapRow(row, 0));
-                });
+        when(authServiceClient.getUserByEmail(EMAIL)).thenReturn(
+                new UserIdentityResponse(42L, EMAIL, role, "ACTIVE"));
     }
 
     @Test
-    void validTokenResolvesDatabaseIdentityAndIgnoresClientIdentity() throws Exception {
+    void validTokenResolvesAuthenticationIdentityAndIgnoresClientIdentity() throws Exception {
         activeUser("USER");
         String spoofedClaims = Jwts.builder().setSubject(EMAIL)
                 .claim("userId", 999L).claim("role", "ADMIN")
@@ -140,17 +131,22 @@ class InvestmentSecurityTest {
         }
         mvc.perform(get("/assets").param("token", validToken()))
                 .andExpect(status().isUnauthorized());
-        verifyNoInteractions(jdbc);
+        verifyNoInteractions(authServiceClient);
     }
 
     @Test
     void rejectsUsersExcludedByActiveStatusLookup() throws Exception {
-        //Disabled, unverified and deleted users all produce no row from this ACTIVE-only lookup.
-        when(jdbc.query(eq(USER_QUERY), org.mockito.ArgumentMatchers.<RowMapper<AuthenticatedUser>>any(), eq(EMAIL)))
-                .thenReturn(List.of());
+        //Disabled, unverified and deleted users cannot authenticate.
+        for (String status : List.of("INACTIVE", "UNVERIFIED")) {
+            when(authServiceClient.getUserByEmail(EMAIL))
+                    .thenReturn(new UserIdentityResponse(42L, EMAIL, "USER", status));
+            mvc.perform(get("/assets").header("Authorization", "Bearer " + validToken()))
+                    .andExpect(status().isUnauthorized());
+        }
+        when(authServiceClient.getUserByEmail(EMAIL)).thenThrow(new IllegalArgumentException("User does not exist"));
         mvc.perform(get("/assets").header("Authorization", "Bearer " + validToken()))
                 .andExpect(status().isUnauthorized());
-        verify(jdbc).query(eq(USER_QUERY), org.mockito.ArgumentMatchers.<RowMapper<AuthenticatedUser>>any(), eq(EMAIL));
+        verify(authServiceClient, times(3)).getUserByEmail(EMAIL);
     }
 
     @Test
@@ -159,8 +155,8 @@ class InvestmentSecurityTest {
         String token = validToken();
         mvc.perform(get("/portfolio/identity").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
-        when(jdbc.query(eq(USER_QUERY), org.mockito.ArgumentMatchers.<RowMapper<AuthenticatedUser>>any(), eq(EMAIL)))
-                .thenReturn(List.of());
+        when(authServiceClient.getUserByEmail(EMAIL))
+                .thenReturn(new UserIdentityResponse(42L, EMAIL, "USER", "INACTIVE"));
         mvc.perform(get("/portfolio/identity").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
@@ -182,16 +178,16 @@ class InvestmentSecurityTest {
     }
 
     @Test
-    void rejectsUnknownDatabaseRoles() throws Exception {
+    void rejectsUnknownAuthenticationRoles() throws Exception {
         activeUser("UNKNOWN");
         mvc.perform(get("/assets").header("Authorization", "Bearer " + validToken()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void databaseFailureDoesNotAuthenticateUser() throws Exception {
-        when(jdbc.query(eq(USER_QUERY), org.mockito.ArgumentMatchers.<RowMapper<AuthenticatedUser>>any(), eq(EMAIL)))
-                .thenThrow(new DataAccessResourceFailureException("Database unavailable"));
+    void authenticationServiceFailureDoesNotAuthenticateUser() throws Exception {
+        when(authServiceClient.getUserByEmail(EMAIL))
+                .thenThrow(new ResourceAccessException("Authentication service unavailable"));
         mvc.perform(get("/assets").header("Authorization", "Bearer " + validToken()))
                 .andExpect(status().isServiceUnavailable());
     }
@@ -215,6 +211,6 @@ class InvestmentSecurityTest {
         mvc.perform(options("/portfolio/buy").header("Origin", "https://other.example")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(jdbc);
+        verifyNoInteractions(authServiceClient);
     }
 }
