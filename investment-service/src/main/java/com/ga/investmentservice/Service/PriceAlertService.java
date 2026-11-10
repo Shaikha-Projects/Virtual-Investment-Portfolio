@@ -13,6 +13,8 @@ import com.ga.investmentservice.Model.Portfolio;
 import com.ga.investmentservice.Model.PriceAlert;
 import com.ga.investmentservice.Repository.*;
 import com.ga.investmentservice.Security.CurrentUser;
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +33,7 @@ public class PriceAlertService {
     private final AssetRepository assetRepository;
     private final CurrentUser currentUser;
     private final InvestmentEventService investmentEventService;
-
+    private final AuthServiceClient authServiceClient;
 
     //method to create a price alert
     @Transactional
@@ -174,11 +176,17 @@ public class PriceAlertService {
                 lockedAlert.setStatus(PriceAlertStatus.TRIGGERED);
                 lockedAlert.setTriggeredAt(LocalDateTime.now());
 
+                //get user information from Authentication using REST Client
+                Long userId = lockedAlert.getPortfolio().getUserId();
+                UserIdentityResponse user = authServiceClient.getUserById(userId);
+
+                if (!userId.equals(user.userId())) {
+                    throw new IllegalStateException("Alert owner does not match Authentication");
+                }
+
                 //publish notification
                 investmentEventService.savePriceAlertEvent(
-                        new PriceAlertTriggeredEvent(
-                                portfolioRepository.findUserEmailByUserId(lockedAlert.getPortfolio().getUserId())
-                                        .orElseThrow(() -> new InformationNotFoundException("User does not exist")),
+                        new PriceAlertTriggeredEvent(user.emailAddress(),
                                 "Price alert triggered: " + asset.getSymbol()
                                         + " reached $" + newPrice
                                         + " (target: $" + lockedAlert.getTargetPrice() + ")"
