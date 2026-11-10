@@ -1,4 +1,6 @@
-export const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '')
+const AUTH_BASE = (import.meta.env?.VITE_AUTH_BASE_URL || 'http://localhost:8084').replace(/\/$/, '')
+const INVESTMENT_BASE = (import.meta.env?.VITE_INVESTMENT_BASE_URL || 'http://localhost:8085').replace(/\/$/, '')
+const NOTIFICATION_BASE = (import.meta.env?.VITE_NOTIFICATION_BASE_URL || 'http://localhost:8083').replace(/\/$/, '')
 const safeMessages = new Set([
   'Target price must be higher than current price', 'Target price must be lower than current price',
   'Only active alerts can be cancelled', 'Price alert does not exist', 'Asset does not exist',
@@ -39,8 +41,17 @@ export function friendlyError(error) {
 export function query(values) {
   return new URLSearchParams(Object.entries(values).filter(([, value]) => value !== '' && value != null)).toString()
 }
+function serviceBase(path) {
+  const pathname = path.split(/[?#]/, 1)[0]
+  const matches = prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  if (['/auth', '/profile', '/admin/users', '/uploads'].some(matches)) return AUTH_BASE
+  if (['/assets', '/portfolio', '/orders', '/watchlist', '/price-alerts', '/admin/assets', '/admin/audit-logs'].some(matches)) return INVESTMENT_BASE
+  if (matches('/notifications')) return NOTIFICATION_BASE
+  throw new ApiError('Unknown API endpoint.')
+}
 export function createApi({ token = '', onInvalid = () => {}, signal: sessionSignal } = {}) {
   return async function request(path, { body, signal, responseType = 'json', ...options } = {}) {
+    const base = serviceBase(path)
     const headers = new Headers(options.headers)
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (body != null && !(body instanceof FormData)) headers.set('Content-Type', 'application/json')
@@ -48,7 +59,7 @@ export function createApi({ token = '', onInvalid = () => {}, signal: sessionSig
     const combined = AbortSignal.any([timeout, sessionSignal, signal].filter(Boolean))
     let response
     try {
-      response = await fetch(`${API_BASE}${path}`, { ...options, headers,
+      response = await fetch(`${base}${path}`, { ...options, headers,
         body: body == null || body instanceof FormData ? body : JSON.stringify(body), signal: combined })
     } catch {
       if (sessionSignal?.aborted || signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
@@ -59,7 +70,7 @@ export function createApi({ token = '', onInvalid = () => {}, signal: sessionSig
       let invalid = response.status === 401 || path === '/auth/me'
       if (!invalid) {
         try {
-          const identity = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, signal: combined })
+          const identity = await fetch(`${AUTH_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, signal: combined })
           invalid = identity.status === 401 || identity.status === 403
         } catch { /* Network failure does not prove the session is invalid. */ }
       }
@@ -81,5 +92,5 @@ export function createApi({ token = '', onInvalid = () => {}, signal: sessionSig
 }
 export const publicApi = createApi()
 export function pictureUrl(path) {
-  return path ? `${API_BASE}/${path.replace(/\\/g, '/').replace(/^\/+/, '')}` : ''
+  return path ? `${AUTH_BASE}/${path.replace(/\\/g, '/').replace(/^\/+/, '')}` : ''
 }
