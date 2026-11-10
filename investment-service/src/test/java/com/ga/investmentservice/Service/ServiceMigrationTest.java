@@ -1,6 +1,8 @@
 package com.ga.investmentservice.Service;
 
 import com.ga.investmentservice.DTO.Request.*;
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import com.ga.investmentservice.Enums.*;
 import com.ga.investmentservice.Event.*;
 import com.ga.investmentservice.Exception.BusinessRuleException;
@@ -34,12 +36,13 @@ class ServiceMigrationTest {
     private final InvestmentOrderRepository orders = mock(InvestmentOrderRepository.class);
     private final AuditLogService audit = mock(AuditLogService.class);
     private final InvestmentEventService events = mock(InvestmentEventService.class);
+    private final AuthServiceClient authServiceClient = mock(AuthServiceClient.class);
     private final CurrentUser currentUser = new CurrentUser();
     private final TradeExecutionService trades = new TradeExecutionService(holdings, transactions);
     private final Portfolio portfolio = new Portfolio();
     private final Asset asset = new Asset();
     private final Holding holding = new Holding();
-    private final OrderExecutionService execution = new OrderExecutionService(orders, portfolios, holdings, trades, events, audit, assets);
+    private final OrderExecutionService execution = new OrderExecutionService(orders, portfolios, holdings, trades, events, audit, assets, authServiceClient);
 
     @BeforeEach
     void setup() {
@@ -61,7 +64,8 @@ class ServiceMigrationTest {
         holding.setReservedQuantity(new BigDecimal("0.50"));
         when(portfolios.findByUserId(42L)).thenReturn(Optional.of(portfolio));
         when(portfolios.findByIdForUpdate(5L)).thenReturn(Optional.of(portfolio));
-        when(portfolios.findUserEmailByUserId(42L)).thenReturn(Optional.of("owner@example.com"));
+        when(authServiceClient.getUserById(42L)).thenReturn(
+                new UserIdentityResponse(42L, "owner@example.com", "USER", "ACTIVE"));
         when(assets.findById(1L)).thenReturn(Optional.of(asset));
         when(assets.findByIdForUpdate(1L)).thenReturn(Optional.of(asset));
         when(holdings.findByPortfolioAndAsset(portfolio, asset)).thenReturn(Optional.of(holding));
@@ -100,6 +104,7 @@ class ServiceMigrationTest {
         order.setLimitPrice(new BigDecimal("10.00"));
         order.setStatus(OrderStatus.PENDING);
         when(orders.findByIdForUpdate(7L)).thenReturn(Optional.of(order));
+        when(orders.findOrderOwnerId(7L)).thenReturn(Optional.of(42L));
         return order;
     }
 
@@ -191,7 +196,7 @@ class ServiceMigrationTest {
         assertEquals(new BigDecimal("990.00"), portfolio.getCashBalance());
         assertEquals(new BigDecimal("90.00"), portfolio.getReservedCash());
         assertEquals(OrderStatus.FILLED, order.getStatus());
-        verify(audit).logOrderExecution(order, "Executed BUY limit order #7 for 1.00 shares of ABC");
+        verify(audit).logOrderExecution(order, "owner@example.com", "Executed BUY limit order #7 for 1.00 shares of ABC");
         verify(events).saveTransactionEvent(new TransactionCompletedEvent(
                 "owner@example.com", "BUY", "ABC", new BigDecimal("1.00"), new BigDecimal("10.00")));
         verify(events).saveInvestmentNotificationEvent(new InvestmentNotificationEvent(
@@ -212,7 +217,7 @@ class ServiceMigrationTest {
         verify(transactions).save(saved.capture());
         assertEquals(new BigDecimal("8.00"), saved.getValue().getCostBasis());
         assertEquals(new BigDecimal("2.00"), saved.getValue().getRealizedGainLoss());
-        verify(audit).logOrderExecution(order, "Executed SELL limit order #7 for 1.00 shares of ABC");
+        verify(audit).logOrderExecution(order, "owner@example.com", "Executed SELL limit order #7 for 1.00 shares of ABC");
     }
 
     @Test
@@ -232,7 +237,7 @@ class ServiceMigrationTest {
     @Test
     void backgroundPriceAlertsKeepOriginalMessageAndSkipAlreadyTriggeredAlerts() {
         PriceAlertRepository repository = mock(PriceAlertRepository.class);
-        PriceAlertService service = new PriceAlertService(repository, portfolios, assets, currentUser, events);
+        PriceAlertService service = new PriceAlertService(repository, portfolios, assets, currentUser, events, authServiceClient);
         PriceAlert alert = new PriceAlert();
         alert.setId(8L);
         alert.setPortfolio(portfolio);
