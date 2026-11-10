@@ -4,10 +4,10 @@ import io.jsonwebtoken.*;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.*;
-import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.ga.investmentservice.Client.AuthServiceClient;
 import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.clearContext();
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
-            } catch (DataAccessException exception) {
+            } catch (IllegalStateException | RestClientException exception) {
                 SecurityContextHolder.clearContext();
                 response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 return;
