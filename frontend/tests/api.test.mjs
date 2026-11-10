@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createApi, errorMessage, friendlyError, ApiError, query } from '../src/api/client.js'
+import { createApi, publicApi, pictureUrl, errorMessage, friendlyError, ApiError, query } from '../src/api/client.js'
 import { createSseParser } from '../src/api/sse.js'
 
 test('unexpected server content is never used as a user message', () => {
@@ -70,4 +70,92 @@ test('SSE parser handles fragmented CRLF frames, comments, names and multiline d
     { event: 'investment-notification', id: 'trade-1', data: 'Purchase completed: 0.01 shares of AAPL' },
     { event: 'other', id: 'trade-2', data: 'first\nsecond' },
   ])
+})
+
+test('API paths route to their microservices without a monolith fallback', async t => {
+  const routes = [
+    ['/auth/login', 8084], ['/auth/me', 8084], ['/auth/register', 8084],
+    ['/auth/forgot-password', 8084], ['/auth/reset-password', 8084], ['/auth/change-password', 8084],
+    ['/profile', 8084], ['/profile/picture', 8084], ['/admin/users?size=1', 8084],
+    ['/admin/users/42/status?status=INACTIVE', 8084], ['/uploads/profile-pictures/avatar.png', 8084],
+    ['/assets?search=A%26B', 8085], ['/assets/1/price-history', 8085],
+    ['/portfolio/buy', 8085], ['/portfolio/sell', 8085], ['/portfolio/holdings', 8085],
+    ['/portfolio/transactions?page=2&sort=createdAt,desc', 8085], ['/portfolio/performance', 8085], ['/portfolio/history', 8085],
+    ['/orders', 8085], ['/orders/7/cancel', 8085], ['/watchlist', 8085], ['/watchlist/1', 8085],
+    ['/price-alerts', 8085], ['/price-alerts/1/cancel', 8085],
+    ['/admin/assets', 8085], ['/admin/assets/1/status', 8085],
+    ['/admin/assets/execute-pending', 8085], ['/admin/audit-logs?page=1', 8085],
+    ['/notifications/subscribe', 8083],
+  ]
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push(url)
+    assert.equal(options.headers.get('Authorization'), 'Bearer synthetic-token')
+    assert.doesNotMatch(url, /synthetic-token|:8081/)
+    return new Response('{}', { status: 200 })
+  })
+  const api = createApi({ token: 'synthetic-token' })
+  for (const [path, port] of routes) {
+    await api(path)
+    assert.equal(requests.at(-1), `http://localhost:${port}${path}`)
+  }
+})
+
+test('public authentication calls retain their interface and omit bearer credentials', async t => {
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'http://localhost:8084/auth/login')
+    assert.equal(options.headers.has('Authorization'), false)
+    assert.equal(options.body, JSON.stringify({ emailAddress: 'user@example.test', password: 'synthetic' }))
+    return new Response('{"token":"synthetic"}', { status: 200 })
+  })
+  assert.deepEqual(await publicApi('/auth/login', { method: 'POST', body: { emailAddress: 'user@example.test', password: 'synthetic' } }), { token: 'synthetic' })
+})
+
+test('Investment role denial checks identity with Authentication and preserves a valid session', async t => {
+  const requests = []
+  let invalid = 0
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push(url)
+    assert.equal(options.headers.get('Authorization'), 'Bearer synthetic-token')
+    return url === 'http://localhost:8084/auth/me'
+      ? new Response('{"role":"USER"}', { status: 200 }) : new Response('', { status: 403 })
+  })
+  await assert.rejects(createApi({ token: 'synthetic-token', onInvalid: () => invalid++ })('/admin/assets'), error => error.status === 403)
+  assert.deepEqual(requests, ['http://localhost:8085/admin/assets', 'http://localhost:8084/auth/me'])
+  assert.equal(invalid, 0)
+})
+
+test('profile images always use Authentication with existing path normalization', () => {
+  assert.equal(pictureUrl('uploads/profile-pictures/avatar.png'), 'http://localhost:8084/uploads/profile-pictures/avatar.png')
+  assert.equal(pictureUrl('uploads\\profile-pictures\\avatar.png'), 'http://localhost:8084/uploads/profile-pictures/avatar.png')
+  assert.equal(pictureUrl('/uploads/profile-pictures/avatar.png'), 'http://localhost:8084/uploads/profile-pictures/avatar.png')
+  assert.equal(pictureUrl(null), '')
+})
+
+test('unknown paths and lookalike prefixes cannot send credentials to a fallback service', async t => {
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; return new Response('{}') })
+  for (const path of ['/admin/users-extra', '/admin/assets-extra', '/authentication', '/unknown', 'http://localhost:8081/auth/me']) {
+    await assert.rejects(createApi({ token: 'synthetic-token' })(path), ApiError)
+  }
+  assert.equal(requests, 0)
+})
+
+test('multipart uploads and empty and plain-text responses retain their behavior across services', async t => {
+  const body = new FormData()
+  body.append('picture', new Blob(['synthetic-image'], { type: 'image/png' }), 'avatar.png')
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (url === 'http://localhost:8084/profile/picture') {
+      assert.equal(options.body, body)
+      assert.equal(options.headers.has('Content-Type'), false)
+      return new Response('{}', { status: 200 })
+    }
+    if (url === 'http://localhost:8085/price-alerts/1/cancel') return new Response(null, { status: 204 })
+    assert.equal(url, 'http://localhost:8085/orders')
+    return new Response('Limit order placed successfully', { status: 200 })
+  })
+  const api = createApi({ token: 'synthetic-token' })
+  assert.deepEqual(await api('/profile/picture', { method: 'PUT', body }), {})
+  assert.equal(await api('/price-alerts/1/cancel', { method: 'PATCH' }), null)
+  assert.equal(await api('/orders', { method: 'POST', responseType: 'text' }), 'Limit order placed successfully')
 })
