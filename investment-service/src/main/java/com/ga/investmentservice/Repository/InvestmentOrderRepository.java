@@ -29,4 +29,8 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
     Optional<InvestmentOrder> findByIdForUpdate(@Param("orderId") Long orderId);
 
     Page<InvestmentOrder> findByPortfolio_UserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    //get the user id of the investor who owns the order
+    @Query("SELECT o.portfolio.userId FROM InvestmentOrder o WHERE o.id = :orderId")
+    Optional<Long> findOrderOwnerId(@Param("orderId") Long orderId);
 }
