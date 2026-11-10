@@ -5,23 +5,22 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.*;
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
-
+import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.DTO.Response.UserIdentityResponse;
 import java.io.IOException;
 import java.util.List;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtParser parser;
-    private final JdbcTemplate jdbc;
+    private final AuthServiceClient authServiceClient;
 
-    public JwtAuthenticationFilter(String secret, JdbcTemplate jdbc) {
-        //authentication uses the String overload, which decodes the shared Base64 secret.
+    public JwtAuthenticationFilter(String secret, AuthServiceClient authServiceClient) {
         this.parser = Jwts.parserBuilder().setSigningKey(secret).build();
-        this.jdbc = jdbc;
+        this.authServiceClient = authServiceClient;
     }
 
     @Override
@@ -37,17 +36,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (!"HS256".equals(jwt.getHeader().getAlgorithm()) || claims.getExpiration() == null
                         || email == null || email.isBlank()) throw new IllegalArgumentException();
 
-                //read current identity, status and role without copying Authentication's User entity.
-                List<AuthenticatedUser> users = jdbc.query(
-                        "select id, email_address, role from users where email_address = ? and status = 'ACTIVE'",
-                        (row, rowNumber) -> new AuthenticatedUser(row.getLong("id"),
-                                row.getString("email_address"), row.getString("role")), email);
-                if (users.size() != 1) throw new IllegalArgumentException();
-                AuthenticatedUser user = users.get(0);
-                if (user.getUserId() == null || user.getUserId() <= 0
-                        || !("USER".equals(user.getRole()) || "ADMIN".equals(user.getRole()))) {
+                //get current user identity from Authentication using REST Client
+                UserIdentityResponse identity = authServiceClient.getUserByEmail(email);
+
+                if (!email.equals(identity.emailAddress())
+                        || !"ACTIVE".equals(identity.status())
+                        || !("USER".equals(identity.role()) || "ADMIN".equals(identity.role()))) {
                     throw new IllegalArgumentException();
                 }
+
+                AuthenticatedUser user = new AuthenticatedUser(
+                        identity.userId(),
+                        identity.emailAddress(),
+                        identity.role()
+                );
+
                 var context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(new UsernamePasswordAuthenticationToken(user, null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()))));
