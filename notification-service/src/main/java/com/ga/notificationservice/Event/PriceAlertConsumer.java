@@ -1,6 +1,7 @@
 package com.ga.notificationservice.Event;
 
 import com.ga.notificationservice.Service.NotificationService;
+import com.ga.notificationservice.Service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 public class PriceAlertConsumer {
     private final NotificationService notificationService;
+    private final EmailService emailService;
     private final JsonMapper jsonMapper;
 
     @KafkaListener(topics = "investment.price-alert-triggered")
@@ -20,12 +22,20 @@ public class PriceAlertConsumer {
             //convert JSON into readable data
             JsonNode event = jsonMapper.readTree(message);
 
+            if (event == null || !event.path("emailAddress").isString()
+                    || event.path("emailAddress").asText().isBlank()
+                    || !event.path("message").isString()
+                    || event.path("message").asText().isBlank()) {
+                throw new IllegalStateException("Invalid price alert event");
+            }
+
             //extract email and message
             String email = event.get("emailAddress").asText();
             String alertMessage = event.get("message").asText();
 
-            //send email
+            //send notification and email
             notificationService.sendNotification(email, alertMessage);
+            emailService.sendPriceAlertEmail(email, alertMessage);
 
         } catch (JacksonException e) {
             throw new IllegalStateException("Failed to read price alert event", e);
