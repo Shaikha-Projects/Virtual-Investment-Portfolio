@@ -1,0 +1,50 @@
+package com.ga.investmentservice.Repository;
+
+import com.ga.investmentservice.Enums.AssetStatus;
+import com.ga.investmentservice.Enums.AssetType;
+import com.ga.investmentservice.Model.Asset;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface AssetRepository extends JpaRepository<Asset, Long> {
+
+    //find active assets
+    List<Asset> findByAssetStatus(AssetStatus assetStatus);
+
+    //search active assets by symbol or name
+    List<Asset> findByAssetStatusAndSymbolContainingIgnoreCaseOrAssetStatusAndNameContainingIgnoreCase(
+            AssetStatus assetStatus1, String symbol,
+            AssetStatus assetStatus2, String name
+    );
+
+    //search active assets by symbol or name within a specific asset type
+    @Query("""
+        SELECT a FROM Asset a WHERE a.assetStatus = :assetStatus
+        AND a.assetType = :assetType
+        AND (LOWER(a.symbol) LIKE LOWER(CONCAT('%', :search, '%'))
+        OR LOWER(a.name) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    List<Asset> searchByType(AssetStatus assetStatus, AssetType assetType, String search);
+
+    //filter active assets belonging to a specific asset type
+    List<Asset> findByAssetStatusAndAssetType(AssetStatus assetStatus, AssetType assetType);
+
+    //check duplicate asset symbols
+    boolean existsBySymbolIgnoreCase(String symbol);
+
+    //check symbol exist on an asset whose ID is not the asset we're currently updating
+    //symbol is the new symbol to be checked, id the current asset id
+    boolean existsBySymbolIgnoreCaseAndIdNot(String symbol, Long id);
+
+    //method to lock database row
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Asset a WHERE a.id = :assetId")
+    Optional<Asset> findByIdForUpdate(Long assetId);
+}

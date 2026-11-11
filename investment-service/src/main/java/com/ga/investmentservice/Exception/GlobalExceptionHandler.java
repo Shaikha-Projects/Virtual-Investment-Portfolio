@@ -1,0 +1,74 @@
+package com.ga.investmentservice.Exception;
+
+import com.ga.investmentservice.DTO.Response.ErrorResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    //when information (email for user) already exists
+    @ExceptionHandler(InformationExistException.class)
+    public ResponseEntity<ErrorResponse> handleInformationExistException(InformationExistException exception) {
+
+        HttpStatus status = HttpStatus.CONFLICT;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse); //constructs the HTTP response
+    }
+
+    //to validate user input when registration
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(MethodArgumentNotValidException exception) {
+
+        Map<String, String> errors = new HashMap<>(); //an empty map to collect all validation
+
+        //gets all the validation results, then loops through every validation error
+        exception.getBindingResult().getFieldErrors().forEach(error ->
+                        errors.put(error.getField(), error.getDefaultMessage())); //get fields and it's validation message
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    //when information not found
+    @ExceptionHandler(InformationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInformationNotFoundException(InformationNotFoundException exception){
+        HttpStatus status = HttpStatus.NOT_FOUND;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        ); //get error message from the exception
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse); //constructs the HTTP response
+    }
+
+    //when a business rule is violated
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessRuleException(BusinessRuleException exception) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErrorResponse errorResponse = new ErrorResponse(LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                exception.getMessage()
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+
+}

@@ -1,16 +1,18 @@
-# Project 2 frontend verification
+# Microservices frontend verification
 
 ## Run locally (PowerShell)
 
 Prerequisites: Java 17, PostgreSQL, and a Node version supported by the repository's Vite 8 installation. Use the committed Maven wrapper and npm lockfile.
 
 1. Start PostgreSQL and create the existing `investment_portfolio` database if it does not exist.
-2. In the repository root, supply the existing backend environment variables through your shell or IDE: `DB_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. Use your own values; do not commit them. The JWT secret must meet the existing HS256 signing requirements. The backend creates the configured admin if it is absent.
-3. Start the backend:
+2. Supply each microservice's existing backend environment variables through its shell or IDE. Use the same `JWT_SECRET`, shared database settings, and required internal service key where configured; provide mail credentials to the service that sends mail. Never put these credentials in frontend environment variables.
+3. Start Kafka and run the three microservices from their own working directories or IntelliJ configurations: Authentication on 8084, Investment on 8085, and Notification on 8083. Keep the original monolith stopped. For command-line startup, open a separate terminal in each service directory and run:
 
    ```powershell
    .\mvnw.cmd spring-boot:run
    ```
+
+   Authentication serves `/uploads/**` from `file:uploads/` relative to its working directory. Use its established working directory so existing uploads continue to resolve.
 
 4. In another terminal:
 
@@ -21,9 +23,9 @@ Prerequisites: Java 17, PostgreSQL, and a Node version supported by the reposito
    npm.cmd run dev -- --host localhost --port 5173 --strictPort
    ```
 
-5. Open `http://localhost:5173`. The default backend is `http://localhost:8081`. Change `VITE_API_BASE_URL` in `.env.local` for a different backend, then restart Vite. Never place a JWT secret, password, or credential in a Vite variable: these variables are public build configuration.
+5. Open `http://localhost:5173`. `.env.example` defines `VITE_AUTH_BASE_URL=http://localhost:8084`, `VITE_INVESTMENT_BASE_URL=http://localhost:8085`, and `VITE_NOTIFICATION_BASE_URL=http://localhost:8083`. Set overrides in `.env.local` and restart Vite after changes. Never place a JWT secret, password, or internal service key in a Vite variable: these variables are public build configuration.
 
-The existing backend permits the frontend origin `http://localhost:5173`. A different frontend origin requires an explicit backend CORS configuration change. Verification and reset emails retain their existing localhost destinations; configure those separately before deployment. No deployment configuration was changed here.
+All three microservices permit the frontend origin `http://localhost:5173`. A different frontend origin requires an explicit backend CORS configuration change. Verification and reset emails retain their existing localhost destinations; configure those separately before deployment. No deployment configuration was changed here.
 
 ## Automated checks
 
@@ -38,12 +40,14 @@ npm.cmd test
 From the repository root:
 
 ```powershell
-.\mvnw.cmd test
+.\auth-service\mvnw.cmd -f auth-service/pom.xml test
+.\investment-service\mvnw.cmd -f investment-service/pom.xml test
+.\notification-service\mvnw.cmd -f notification-service/pom.xml test
 ```
 
 Frontend tests cover error redaction, business messages, encoded queries, JWT headers, authentication versus permission failures, network errors, cancellation after logout, and fragmented SSE parsing. Backend MVC tests use the real security configuration with mocked services, and exercise admin permissions, safe DTO serialization, identity, and SSE delivery. Service tests cover self-deactivation and bounded pagination. These do not replace browser or real-database integration testing.
 
-## Execution record
+## Historical execution record (before the microservices routing migration)
 
 - Frontend production build and ESLint passed.
 - All 8 Node frontend tests passed.
@@ -109,3 +113,12 @@ No schema changes, new runtime dependencies, Project 3 concurrency work, notific
 - `src/test/java/com/ga/investmentportfolio/Controller/FrontendAccessTest.java`
 - `src/test/java/com/ga/investmentportfolio/Controller/NotificationControllerTest.java`
 - `src/test/java/com/ga/investmentportfolio/Service/AdminUserServiceTest.java`
+
+## Microservice routing checks
+
+- In browser Network tools, confirm login, `/auth/me`, profile, uploads, and `/admin/users` use Authentication (8084).
+- Confirm market, portfolio, orders, watchlist, alerts, `/admin/assets`, and `/admin/audit-logs` use Investment (8085).
+- Confirm `/notifications/subscribe` uses Notification (8083), with the JWT only in its Authorization header.
+- Confirm no frontend requests reach the original monolith. Check profile upload/display, USER and ADMIN access, and reconnecting SSE.
+- After email verification, portfolio provisioning is asynchronous through Kafka; check the portfolio after the provisioning event is consumed.
+- Browser smoke fixtures use synthetic tokens. Mocked tests do not prove live CORS, PostgreSQL, Kafka, or REST integration.

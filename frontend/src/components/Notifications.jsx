@@ -2,9 +2,10 @@ import { isPriceAlertNotification } from '../api/priceAlerts'
 import Icon from './Icon'
 import { useCallback, useEffect, useState } from 'react'
 import NotificationToasts from './NotificationToasts'
-import { API_BASE } from '../api/client'
 import { createSseParser } from '../api/sse'
 import { useTransactionFeedback } from '../hooks/TransactionFeedback'
+
+const NOTIFICATION_BASE = (import.meta.env?.VITE_NOTIFICATION_BASE_URL || 'http://localhost:8083').replace(/\/$/, '')
 
 export default function Notifications({ session, onLimitOrderExecuted, onPriceAlertTriggered }) {
   const [items, setItems] = useState([])
@@ -26,7 +27,7 @@ export default function Notifications({ session, onLimitOrderExecuted, onPriceAl
       while (!controller.signal.aborted) {
         let reader
         try {
-          const response = await fetch(`${API_BASE}/notifications/subscribe`, { headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' }, signal: controller.signal })
+          const response = await fetch(`${NOTIFICATION_BASE}/notifications/subscribe`, { headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' }, signal: controller.signal })
           if (controller.signal.aborted) return
           if (response.status === 401 || response.status === 403) {
             await api('/auth/me', { signal: controller.signal })

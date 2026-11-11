@@ -1,0 +1,19 @@
+package com.ga.investmentservice.DTO.Response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.math.BigDecimal;
+
+@Getter
+@AllArgsConstructor
+public class PortfolioPerformanceResponse {
+    private BigDecimal cashBalance;
+    private BigDecimal holdingsValue;
+    private BigDecimal totalPortfolioValue;
+    private BigDecimal totalCostBasis;
+    private BigDecimal unrealizedGainLoss;
+    private BigDecimal totalGainLoss;
+    private BigDecimal totalReturnPercentage;
+    private BigDecimal realizedGainLoss;
+}

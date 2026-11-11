@@ -66,13 +66,13 @@ No backend files, configuration, dependencies, security, database, schema, or bu
 
 ## Run and manually verify
 
-Run the backend using its existing setup without modifying it. From `frontend/`:
+Run Authentication (8084), Investment (8085), and Notification (8083) using their existing setups. From `frontend/`:
 
 ```powershell
 npm.cmd run dev -- --host localhost --port 5173 --strictPort
 ```
 
-Use the existing `VITE_API_BASE_URL` configuration if needed. The existing backend CORS setup permits `http://localhost:5173`.
+Use `VITE_AUTH_BASE_URL`, `VITE_INVESTMENT_BASE_URL`, and `VITE_NOTIFICATION_BASE_URL` from `.env.example` if overrides are needed. All three services permit `http://localhost:5173`.
 
 1. Log in as USER, open My Orders, and confirm server order, asset names/fallback IDs, statuses, dates, loading/error/empty states, and Refresh.
 2. Open Place Limit Order. Choose an active asset and BUY, enter quantity and price, and check the estimate and BUY rule. Submit once, verify success, and confirm the newly fetched first row. Repeat with SELL and verify its rule.

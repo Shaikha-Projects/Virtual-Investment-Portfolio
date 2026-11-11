@@ -66,7 +66,7 @@ npm.cmd ci
 npm.cmd run dev -- --host localhost --port 5173 --strictPort
 ```
 
-Open `http://localhost:5173`. If needed, copy `.env.example` to `.env.local` and set the public `VITE_API_BASE_URL`; restart Vite after changing it. No secrets belong in Vite configuration.
+Open `http://localhost:5173`. If needed, copy `.env.example` to `.env.local` and set the public `VITE_AUTH_BASE_URL`, `VITE_INVESTMENT_BASE_URL`, and `VITE_NOTIFICATION_BASE_URL` values; restart Vite after changing it. No secrets belong in Vite configuration.
 
 ```powershell
 npm.cmd run build
