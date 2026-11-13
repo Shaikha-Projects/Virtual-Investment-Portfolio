@@ -3,6 +3,7 @@ package com.ga.investmentservice.Service;
 import com.ga.investmentservice.Event.InvestmentNotificationEvent;
 import com.ga.investmentservice.Event.PriceAlertTriggeredEvent;
 import com.ga.investmentservice.Event.TransactionCompletedEvent;
+import com.ga.investmentservice.Event.WalletCompletedEvent;
 import com.ga.investmentservice.Model.OutboxEvent;
 import com.ga.investmentservice.Repository.OutboxEventRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,14 @@ import tools.jackson.databind.json.JsonMapper;
 public class InvestmentEventService {
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper jsonMapper;
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void saveWalletEvent(WalletCompletedEvent event) {
+        OutboxEvent outboxEvent = new OutboxEvent();
+        outboxEvent.setEventType("WALLET_COMPLETED");
+        outboxEvent.setPayload(jsonMapper.writeValueAsString(event));
+        outboxEventRepository.save(outboxEvent);
+    }
 
     //prepare and save a transaction event
     @Transactional(propagation = Propagation.MANDATORY)

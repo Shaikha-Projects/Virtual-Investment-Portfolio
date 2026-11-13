@@ -1,6 +1,7 @@
 package com.ga.investmentservice.Service;
 
 import com.ga.investmentservice.Client.StripeClient;
+import com.ga.investmentservice.Event.WalletCompletedEvent;
 import com.ga.investmentservice.DTO.Request.DepositRequest;
 import com.ga.investmentservice.DTO.Request.WithdrawalRequest;
 import com.ga.investmentservice.DTO.Request.StripeCheckoutRequest;
@@ -53,6 +54,8 @@ class WalletServiceTest {
     private PortfolioRepository portfolioRepository;
     private WalletOperationRepository walletOperationRepository;
     private StripeClient stripeClient;
+    private InvestmentEventService investmentEventService;
+    private final List<WalletCompletedEvent> completedEvents = new CopyOnWriteArrayList<>();
     private WalletService walletService;
     private Portfolio portfolio;
     private TestTransactionManager transactionManager;
@@ -68,9 +71,19 @@ class WalletServiceTest {
         portfolioRepository = mock(PortfolioRepository.class);
         walletOperationRepository = mock(WalletOperationRepository.class);
         stripeClient = mock(StripeClient.class);
+        investmentEventService = mock(InvestmentEventService.class);
+        doAnswer(call -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertTrue(portfolioLock.isHeldByCurrentThread());
+            WalletCompletedEvent event = call.getArgument(0);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { completedEvents.add(event); }
+            });
+            return null;
+        }).when(investmentEventService).saveWalletEvent(any());
         transactionManager = new TestTransactionManager();
         walletService = new WalletService(portfolioRepository, walletOperationRepository, new CurrentUser(),
-                stripeClient, transactionManager, new BigDecimal("10000.00"), 23);
+                stripeClient, investmentEventService, transactionManager, new BigDecimal("10000.00"), 23);
         ReflectionTestUtils.setField(walletService, "clock", Clock.fixed(now, ZoneOffset.UTC));
         requestBuilder = new StripeClient(org.springframework.web.client.RestClient.builder(), "sk_test_unit",
                 "2026-10-28.endive", 1000, 2000, "https://example.com/return", "https://example.com/error");
@@ -154,6 +167,7 @@ class WalletServiceTest {
         verify(stripeClient).createCheckoutSession(eq(operation.getStripeCreationRequest()),
                 eq("wallet-deposit:" + operation.getReference()));
         assertEquals(now.toString(), operation.getStripeCreationRequest().get("createdAt"));
+        verifyNoInteractions(investmentEventService);
         assertEquals("2026-10-28.endive", operation.getStripeCreationRequest().get("apiVersion"));
     }
 
@@ -799,6 +813,8 @@ class WalletServiceTest {
         assertEquals(new BigDecimal("1010.00"), portfolio.getCashBalance());
         verify(stripeClient, times(1)).getCheckoutSession(anyString());
         verify(portfolioRepository, times(1)).save(portfolio);
+        assertEquals(List.of(new WalletCompletedEvent(42L, operation.getReference(), "DEPOSIT", new BigDecimal("10.00"), "COMPLETED")), completedEvents);
+        verify(investmentEventService, times(1)).saveWalletEvent(any());
     }
 
     @Test
@@ -824,6 +840,7 @@ class WalletServiceTest {
             assertEquals(WalletOperationStatus.COMPLETED, second.get(10, TimeUnit.SECONDS).status());
             assertEquals(new BigDecimal("1010.00"), portfolio.getCashBalance());
             verify(portfolioRepository, times(1)).save(portfolio);
+            assertEquals(1, completedEvents.size());
         } finally {
             executor.shutdownNow();
         }
@@ -838,6 +855,7 @@ class WalletServiceTest {
         assertEquals(new BigDecimal("1000.00"), portfolio.getCashBalance());
         verify(stripeClient, never()).getPaymentIntent(anyString());
         verify(portfolioRepository, never()).save(any());
+        verifyNoInteractions(investmentEventService);
     }
 
     @ParameterizedTest
@@ -988,6 +1006,7 @@ class WalletServiceTest {
         assertEquals("USD", operation.getCurrency());
         assertNull(operation.getPaymentMethod());
         verifyNoInteractions(stripeClient);
+        assertEquals(List.of(new WalletCompletedEvent(42L, response.reference(), "WITHDRAWAL", new BigDecimal("200.00"), "COMPLETED")), completedEvents);
     }
 
     @ParameterizedTest
@@ -1049,6 +1068,8 @@ class WalletServiceTest {
         assertEquals(first, second);
         assertEquals(new BigDecimal("800.00"), portfolio.getCashBalance());
         verify(portfolioRepository, times(1)).save(portfolio);
+        assertEquals(1, completedEvents.size());
+        verify(investmentEventService, times(1)).saveWalletEvent(any());
     }
 
     @Test
@@ -1093,6 +1114,7 @@ class WalletServiceTest {
                 assertNotEquals(firstSucceeded, secondSucceeded);
             }
             assertEquals(1, operations.size());
+            assertEquals(1, completedEvents.size());
             assertEquals(new BigDecimal("400.00"), portfolio.getCashBalance());
             assertEquals(new BigDecimal("200.00"), portfolio.getReservedCash());
         } finally { start.countDown(); executor.shutdownNow(); }
@@ -1206,6 +1228,32 @@ class WalletServiceTest {
         assertTrue(withdrawal.created());
         assertFalse(repeated.created());
         assertEquals(withdrawal.response(), repeated.response());
+    }
+
+    @Test
+    void recoveryDoesNotSendACompletionEventEvenWhenStripeIsPaid() {
+        WalletOperation operation = pendingDeposit();
+        stubRecovery(operation);
+        walletService.recoverPendingDeposit(operation.getReference());
+        assertEquals(WalletOperationStatus.PENDING, operation.getStatus());
+        verifyNoInteractions(investmentEventService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DEPOSIT", "WITHDRAWAL"})
+    void outboxSaveFailureRollsBackWalletCompletion(String type) {
+        doThrow(new IllegalStateException("Outbox save failed")).when(investmentEventService).saveWalletEvent(any());
+        if (type.equals("DEPOSIT")) {
+            WalletOperation operation = pendingDeposit();
+            stubVerification(operation);
+            assertThrows(IllegalStateException.class, () -> walletService.verifyPendingDeposit(operation.getReference()));
+        } else {
+            stubWithdrawalInsert();
+            assertThrows(IllegalStateException.class, () -> walletService.withdrawCash(withdrawal("10.00"), "withdraw-1"));
+            assertTrue(operations.isEmpty());
+        }
+        assertEquals(1, transactionManager.rollbacks);
+        assertTrue(completedEvents.isEmpty());
     }
 
     private WalletOperation pendingDeposit() {

@@ -1,6 +1,7 @@
 package com.ga.investmentservice.Service;
 
 import com.ga.investmentservice.Client.StripeClient;
+import com.ga.investmentservice.Event.WalletCompletedEvent;
 import com.ga.investmentservice.DTO.Request.DepositRequest;
 import com.ga.investmentservice.DTO.Request.WithdrawalRequest;
 import com.ga.investmentservice.DTO.Request.StripeCheckoutRequest;
@@ -51,6 +52,7 @@ public class WalletService {
     private final WalletOperationRepository walletOperationRepository;
     private final CurrentUser currentUser;
     private final StripeClient stripeClient;
+    private final InvestmentEventService investmentEventService;
     private final TransactionTemplate transactionTemplate;
     private final BigDecimal maxDepositAmount;
     private final int retryWindowHours;
@@ -65,6 +67,7 @@ public class WalletService {
                          WalletOperationRepository walletOperationRepository,
                          CurrentUser currentUser,
                          StripeClient stripeClient,
+                         InvestmentEventService investmentEventService,
                          PlatformTransactionManager transactionManager,
                          @Value("${wallet.deposit.max-amount}") BigDecimal maxDepositAmount,
                          @Value("${wallet.deposit.stripe-retry-window-hours}") int retryWindowHours) {
@@ -72,6 +75,7 @@ public class WalletService {
         this.walletOperationRepository = walletOperationRepository;
         this.currentUser = currentUser;
         this.stripeClient = stripeClient;
+        this.investmentEventService = investmentEventService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.maxDepositAmount = maxDepositAmount;
         this.retryWindowHours = retryWindowHours;
@@ -264,6 +268,7 @@ public class WalletService {
             if (walletOperationRepository.insertCompletedWithdrawal(portfolio.getId(), reference, idempotencyKey, amount, balance) != 1) {
                 throw new IllegalStateException("Withdrawal history could not be saved");
             }
+            investmentEventService.saveWalletEvent(new WalletCompletedEvent(userId, reference, "WITHDRAWAL", amount, "COMPLETED"));
             return new WalletResult<>(new WithdrawalResponse(reference, WalletOperationStatus.COMPLETED, balance), true);
         });
     }
@@ -336,6 +341,7 @@ public class WalletService {
             operation.setCompletedAt(LocalDateTime.now());
             portfolioRepository.save(portfolio);
             walletOperationRepository.save(operation);
+            investmentEventService.saveWalletEvent(new WalletCompletedEvent(userId, reference, "DEPOSIT", operation.getAmount(), "COMPLETED"));
             return snapshot(operation).response();
         });
     }

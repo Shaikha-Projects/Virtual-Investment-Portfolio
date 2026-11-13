@@ -26,6 +26,7 @@ public class OutboxPublisher {
                 case "TRANSACTION_COMPLETED" -> "investment.transaction-completed";
                 case "PRICE_ALERT_TRIGGERED" -> "investment.price-alert-triggered";
                 case "INVESTMENT_NOTIFICATION" -> "investment.realtime-notification";
+                case "WALLET_COMPLETED" -> "investment.wallet-completed";
                 default -> throw new IllegalArgumentException("Unknown event type");
             };
 
