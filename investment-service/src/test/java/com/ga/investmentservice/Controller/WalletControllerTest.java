@@ -8,6 +8,7 @@ import com.ga.investmentservice.Filter.InvestmentRateLimitFilter;
 import com.ga.investmentservice.Security.SecurityConfiguration;
 import com.ga.investmentservice.Service.RateLimitService;
 import com.ga.investmentservice.Service.WalletService;
+import com.ga.investmentservice.Service.WalletPdfService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.junit.jupiter.api.*;
@@ -49,6 +50,7 @@ class WalletControllerTest {
             GlobalExceptionHandler.class, WalletController.class})
     static class Config {
         @Bean WalletService walletService() { return mock(WalletService.class); }
+        @Bean WalletPdfService walletPdfService() { return mock(WalletPdfService.class); }
         @Bean AuthServiceClient authServiceClient() { return mock(AuthServiceClient.class); }
         @Bean jakarta.persistence.EntityManagerFactory entityManagerFactory() {
             return mock(jakarta.persistence.EntityManagerFactory.class);
@@ -197,4 +199,39 @@ class WalletControllerTest {
         verifyNoInteractions(walletService);
     }
 
+    @Test
+    void pdfDownloadsHaveSafeHeadersAndRequireUserAuthentication() throws Exception {
+        WalletPdfService pdf = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(context.getBean(WalletPdfService.class));
+        byte[] bytes = "%PDF-test".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        when(pdf.getReceipt(reference)).thenReturn(bytes);
+        when(pdf.getStatement(java.time.LocalDate.of(2026, 11, 1), java.time.LocalDate.of(2026, 11, 30))).thenReturn(bytes);
+        for (String path : List.of("/portfolio/wallet/operations/" + reference + "/receipt", "/portfolio/wallet/statement?from=2026-11-01&to=2026-11-30")) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized());
+            mvc.perform(get(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+            mvc.perform(get(path).header("Authorization", "Bearer " + token())).andExpect(status().isOk())
+                    .andExpect(content().contentType("application/pdf"))
+                    .andExpect(content().bytes(bytes))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"wallet-")))
+                    .andExpect(header().string("Cache-Control", "no-store"));
+        }
+        when(authServiceClient.getUserByEmail(anyString())).thenReturn(new UserIdentityResponse(42L, "owner@example.com", "ADMIN", "ACTIVE"));
+        mvc.perform(get("/portfolio/wallet/operations/" + reference + "/receipt").header("Authorization", "Bearer " + token()))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(walletService);
+    }
+
+    @Test
+    void pdfRequestsPreserveValidationAndOwnershipErrors() throws Exception {
+        WalletPdfService pdf = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(context.getBean(WalletPdfService.class));
+        when(pdf.getReceipt(reference)).thenThrow(new InformationNotFoundException("Wallet operation does not exist"));
+        mvc.perform(get("/portfolio/wallet/operations/" + reference + "/receipt").header("Authorization", "Bearer " + token()))
+                .andExpect(status().isNotFound());
+        doThrow(new BusinessRuleException("Receipts are available only for completed wallet operations")).when(pdf).getReceipt(reference);
+        mvc.perform(get("/portfolio/wallet/operations/" + reference + "/receipt").header("Authorization", "Bearer " + token()))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/portfolio/wallet/statement?from=invalid&to=2026-11-30").header("Authorization", "Bearer " + token()))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/portfolio/wallet/statement?from=2026-11-01").header("Authorization", "Bearer " + token()))
+                .andExpect(status().isBadRequest());
+    }
 }
