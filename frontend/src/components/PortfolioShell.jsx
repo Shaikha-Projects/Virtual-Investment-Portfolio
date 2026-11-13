@@ -5,6 +5,7 @@ import DashboardPage from '../pages/DashboardPage'
 import ProfilePage from '../pages/ProfilePage'
 import PriceAlertsPage from '../pages/PriceAlertsPage'
 import OrdersPage from '../pages/OrdersPage'
+import WalletPage from '../pages/WalletPage'
 import { AdminDashboard, AdminAssets, AdminUsers, AdminAuditLogs } from '../pages/AdminPages'
 import Notifications from './Notifications'
 import Icon from './Icon'
@@ -21,7 +22,7 @@ function CashBalance({ api, revision }) {
 }
 
 export default function PortfolioShell({ session }) {
-  const [requestedSection, setSection] = useState(() => workspaceFor(session.user.role)?.home || '')
+  const [requestedSection, setSection] = useState(() => location.pathname === '/wallet' && session.user.role === 'USER' ? 'wallet' : workspaceFor(session.user.role)?.home || '')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [revision, setRevision] = useState(0)
@@ -41,6 +42,8 @@ export default function PortfolioShell({ session }) {
   const navigate = value => {
     if (!workspace?.navigation.some(([allowed]) => allowed === value)) return
     setSection(value); setMessage(''); setMobileOpen(false)
+    if (value === 'wallet') window.history.replaceState(null, '', '/wallet')
+    else if (location.pathname === '/wallet') window.history.replaceState(null, '', '/')
     requestAnimationFrame(() => document.getElementById('main-content')?.focus())
   }
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function PortfolioShell({ session }) {
   const shared = { api: session.api, revision, orderRevision, priceAlertRevision, refresh, navigate }
   const pages = admin
     ? { admin: AdminDashboard, 'admin-assets': AdminAssets, 'admin-users': AdminUsers, 'admin-audit-logs': AdminAuditLogs, profile: ProfilePage }
-    : { dashboard: DashboardPage, assets: MarketPage, holdings: Holdings, transactions: Transactions, orders: OrdersPage, watchlist: Watchlist, 'price-alerts': PriceAlertsPage, profile: ProfilePage }
+    : { dashboard: DashboardPage, assets: MarketPage, holdings: Holdings, transactions: Transactions, orders: OrdersPage, wallet: WalletPage, watchlist: Watchlist, 'price-alerts': PriceAlertsPage, profile: ProfilePage }
   const Page = workspace ? pages[section] : null
   const currentLabel = workspace?.navigation.find(([value]) => value === section)?.[1]
   const links = entries => entries.map(([value, label, icon]) => (
@@ -85,7 +88,7 @@ export default function PortfolioShell({ session }) {
       <div className="sidebar-bottom"><div className="practice-note"><Icon name="shield" size={20} /><div><strong>{admin ? 'Administration workspace' : 'Built for your next move'}</strong><p>{admin ? 'Manage assets and account access.' : 'A virtual account. Real experience.'}</p></div></div><button className="collapse-button secondary" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}><Icon name="collapse" /><span className="nav-text">Collapse sidebar</span></button></div>
     </aside>
     <div className="dashboard-main"><header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu" aria-expanded={mobileOpen} aria-controls="primary-navigation" onClick={() => setMobileOpen(value => !value)}><Icon name="menu" /></button><div className="topbar-title"><span className="breadcrumb">{admin ? 'Administration' : 'Workspace'} <span>/</span></span><h1>{currentLabel}</h1></div><div className="header-account"><span className="account-mode"><span className="live-dot" />{admin ? 'Admin workspace' : 'Virtual account'}</span>{workspace.investmentNotifications && <Notifications session={session} onLimitOrderExecuted={onLimitOrderExecuted} onPriceAlertTriggered={onPriceAlertTriggered} />}<div className="account-identity"><span className="account-avatar">{session.user.emailAddress.charAt(0).toUpperCase()}</span><div><strong>{session.user.emailAddress}</strong><span>{admin ? 'Administrator' : 'Investor account'}</span></div></div><button className="icon-button logout-button" aria-label="Logout" title="Logout" onClick={() => session.logout()}><Icon name="logout" size={19} /></button></div></header>
-      <main id="main-content" className="content" tabIndex={-1}>{!admin && section !== 'dashboard' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><GlobalNotice message={transactionFallback?.text} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div><footer className="workspace-footer"><span>Virtual Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer></main>
+      <main id="main-content" className="content" tabIndex={-1}>{!admin && section !== 'dashboard' && section !== 'wallet' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><GlobalNotice message={transactionFallback?.text} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div><footer className="workspace-footer"><span>Virtual Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer></main>
     </div>
   </div></TransactionFeedbackProvider>
 }

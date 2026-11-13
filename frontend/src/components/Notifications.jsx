@@ -1,6 +1,7 @@
 import { isPriceAlertNotification } from '../api/priceAlerts'
+import { walletNotification } from '../api/wallet'
 import Icon from './Icon'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import NotificationToasts from './NotificationToasts'
 import { createSseParser } from '../api/sse'
 import { useTransactionFeedback } from '../hooks/TransactionFeedback'
@@ -13,6 +14,7 @@ export default function Notifications({ session, onLimitOrderExecuted, onPriceAl
   const dismissToast = useCallback(id => setToasts(previous => previous.filter(item => item.id !== id)), [])
   const [status, setStatus] = useState('Connecting')
   const [open, setOpen] = useState(false)
+  const walletSeen = useRef(new Set())
   const { token, api } = session
   const feedback = useTransactionFeedback()
   useEffect(() => {
@@ -45,13 +47,14 @@ export default function Notifications({ session, onLimitOrderExecuted, onPriceAl
             if (event.event !== 'investment-notification') return
             if (event.id && seen.has(event.id)) return
             if (event.id) { seen.add(event.id); if (seen.size > 200) seen.delete(seen.values().next().value) }
-            // Display normal trades and executed limit orders using the same notification UI.
-            if (!isPriceAlertNotification(event.data) && !/^(?:(?:Purchase|Sale) completed|Limit (?:BUY|SELL) order executed): [0-9.]+ shares of [A-Za-z0-9.^_/-]{1,30}$/.test(event.data)) return
+            // keep wallet references across reconnects during this session
+            const wallet = walletNotification(event.data, walletSeen.current)
+            if (!wallet && !isPriceAlertNotification(event.data) && !/^(?:(?:Purchase|Sale) completed|Limit (?:BUY|SELL) order executed): [0-9.]+ shares of [A-Za-z0-9.^_/-]{1,30}$/.test(event.data)) return
             if (isPriceAlertNotification(event.data)) {
               clearTimeout(alertRefreshTimer)
               alertRefreshTimer = setTimeout(() => { if (!controller.signal.aborted) onPriceAlertTriggered?.() }, 200)
             }
-            const item = { id: event.id || crypto.randomUUID(), text: event.data }
+            const item = { id: wallet ? `wallet:${wallet.reference}` : event.id || crypto.randomUUID(), text: wallet ? wallet.text : event.data }
             feedback?.received(event.data)
             setItems(previous => [item, ...previous].slice(0, 30))
             setToasts(previous => [...previous, item].slice(-3))

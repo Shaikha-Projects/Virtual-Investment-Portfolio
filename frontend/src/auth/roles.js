@@ -21,6 +21,7 @@ const workspaces = {
       ['holdings', 'My Holdings', 'holdings'],
       ['transactions', 'Transactions', 'transactions'],
       ['orders', 'My Orders', 'clock'],
+      ['wallet', 'Cash Wallet', 'wallet'],
       ['watchlist', 'Watchlist', 'watchlist'],
       ['price-alerts', 'Price Alerts', 'bell'],
       profile,
