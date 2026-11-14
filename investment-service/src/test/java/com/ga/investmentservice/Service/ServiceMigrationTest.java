@@ -33,6 +33,7 @@ class ServiceMigrationTest {
     private final PortfolioRepository portfolios = mock(PortfolioRepository.class);
     private final HoldingRepository holdings = mock(HoldingRepository.class);
     private final TransactionRepository transactions = mock(TransactionRepository.class);
+    private final WalletOperationRepository walletOperations = mock(WalletOperationRepository.class);
     private final InvestmentOrderRepository orders = mock(InvestmentOrderRepository.class);
     private final AuditLogService audit = mock(AuditLogService.class);
     private final InvestmentEventService events = mock(InvestmentEventService.class);
@@ -82,7 +83,7 @@ class ServiceMigrationTest {
 
     private AssetService assetService() {
         AssetService service = new AssetService(assets, currentUser, holdings, transactions,
-                portfolios, audit, trades, events);
+                portfolios, audit, trades, events, walletOperations);
         ReflectionTestUtils.setField(service, "entityManager", mock(EntityManager.class));
         return service;
     }

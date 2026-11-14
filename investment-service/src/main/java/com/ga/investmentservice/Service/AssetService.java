@@ -40,6 +40,7 @@ public class AssetService {
     private final AuditLogService auditLogService;
     private final TradeExecutionService tradeExecutionService;
     private final InvestmentEventService investmentEventService;
+    private final WalletOperationRepository walletOperationRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -415,6 +416,9 @@ public class AssetService {
     }
 
     //get portfolio performance
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     @PreAuthorize("hasRole('USER')")
     public PortfolioPerformanceResponse getPortfolioPerformance(String email) {
 
@@ -455,16 +459,21 @@ public class AssetService {
         //cash balance + the current holdings value
         BigDecimal totalPortfolioValue = portfolio.getCashBalance().add(holdingsValue);
 
-        //initial virtual balance
-        BigDecimal startingBalance = new BigDecimal("100000.00");
+        //initial funding and completed external cash movements
+        BigDecimal completedDeposits = walletOperationRepository.sumCompletedDepositsByPortfolioId(portfolio.getId());
+        BigDecimal completedWithdrawals = walletOperationRepository.sumCompletedWithdrawalsByPortfolioId(portfolio.getId());
+        BigDecimal contributedCapital = portfolio.getInitialFunding().add(completedDeposits);
 
         //calculate overall gain or loss
-        BigDecimal totalGainLoss = totalPortfolioValue.subtract(startingBalance);
+        BigDecimal totalGainLoss = totalPortfolioValue.subtract(contributedCapital).add(completedWithdrawals);
 
         //calculate overall return percentage
-        BigDecimal totalReturnPercentage = totalGainLoss
-                .divide(startingBalance, 4, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal("100"));
+        BigDecimal totalReturnPercentage = BigDecimal.ZERO;
+        if (contributedCapital.compareTo(BigDecimal.ZERO) > 0) {
+            totalReturnPercentage = totalGainLoss
+                    .divide(contributedCapital, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
 
         //calculate total realized profit or loss from completed SELL transactions
         BigDecimal realizedGainLoss = transactionRepository.sumRealizedGainLoss(portfolio, TransactionType.SELL, TransactionStatus.COMPLETED);

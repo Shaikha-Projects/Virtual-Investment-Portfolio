@@ -26,6 +26,9 @@ public class Portfolio {
     @Column (nullable = false, precision = 15, scale = 2)
     private BigDecimal cashBalance;
 
+    @Column(name = "initial_funding", nullable = false, precision = 15, scale = 2)
+    private BigDecimal initialFunding;
+
     @Column (nullable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;

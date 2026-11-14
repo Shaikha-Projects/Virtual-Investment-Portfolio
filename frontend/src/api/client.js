@@ -16,6 +16,12 @@ const safeMessages = new Set([
   'Asset is not available for trading', 'Insufficient available cash for this order',
   'You do not own this asset', 'Insufficient available shares for this order',
   'You cannot cancel this order', 'Only pending orders can be cancelled', 'Insufficient reserved shares', 'Insufficient available funds',
+  'Deposit amount exceeds the configured limit', 'Withdrawal amount exceeds the configured limit',
+  'Insufficient available cash for withdrawal', 'Idempotency-Key has already been used for a different request',
+  'Recover the Stripe Session before verifying the deposit', 'Wallet operation does not exist',
+  'Choose a valid statement range of at most 366 days',
+  'The statement exceeds 1000 transactions. Choose a shorter date range',
+  'Receipts are available only for completed wallet operations',
 ])
 const messages = {
   400: 'Please check your information and try again.', 401: 'Please log in again to continue.',
@@ -75,6 +81,14 @@ export function createApi({ token = '', onInvalid = () => {}, signal: sessionSig
         } catch { /* Network failure does not prove the session is invalid. */ }
       }
       if (invalid && !combined.aborted) onInvalid()
+    }
+    if (response.ok && responseType === 'blob') {
+      const blob = await response.blob()
+      if (combined.aborted) throw new DOMException('Cancelled', 'AbortError')
+      if (response.headers.get('content-type')?.split(';')[0].trim() !== 'application/pdf' || !blob.size) {
+        throw new ApiError('The service returned an unexpected PDF. Please try again.', response.status)
+      }
+      return blob
     }
     if (response.ok && responseType === 'text') {
       const text = await response.text()

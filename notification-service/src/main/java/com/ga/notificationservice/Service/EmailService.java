@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +21,37 @@ public class EmailService {
 
     @Value("${spring.mail.username}")
     private String fromEmail;
+
+    //send a confirmation for completed virtual wallet operations
+    public void sendWalletEmail(String emailAddress, String type, BigDecimal amount, UUID reference) {
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(emailAddress);
+            helper.setSubject(type.equals("DEPOSIT") ? "Cash Wallet Deposit Confirmation" : "Cash Wallet Withdrawal Confirmation");
+            String emailBody = """
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 30px;">
+            <div style="background-color: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: auto;">
+                <h2 style="color: #1e3a5f;">Virtual Investment Portfolio</h2>
+                <h3>Cash Wallet Confirmation</h3>
+                <p>Your virtual wallet operation has been completed successfully.</p>
+                <p><strong>Operation:</strong> %s</p>
+                <p><strong>Amount:</strong> USD %s</p>
+                <p><strong>Reference:</strong> %s</p>
+                <hr>
+                <p style="font-size: 11px; color: #999;">Investment simulation only. No real money or bank payout is involved.</p>
+            </div>
+        </body>
+        </html>
+        """.formatted(HtmlUtils.htmlEscape(type), amount.setScale(2).toPlainString(), reference);
+            helper.setText(emailBody, true);
+            javaMailSender.send(message);
+        } catch (MessagingException e) {
+            throw new MailSendException("Failed to prepare wallet email", e);
+        }
+    }
 
     public void sendVerificationEmail(String emailAddress, String token) {
         try{

@@ -5,22 +5,30 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.ga.investmentservice.Repository.*;
 import com.ga.investmentservice.Client.AuthServiceClient;
+import com.ga.investmentservice.Client.StripeClient;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @SpringBootTest(properties = {
         "jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration,org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration,org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
-        "investment.market-simulation.enabled=false"
+        "investment.market-simulation.enabled=false",
+        "stripe.enabled=true",
+        "myfatoorah.enabled=false"
 })
 @MockitoBean(types = {AssetRepository.class, HoldingRepository.class, TransactionRepository.class,
         PortfolioRepository.class, InvestmentOrderRepository.class, PortfolioSnapshotRepository.class,
         PriceAlertRepository.class, PriceHistoryRepository.class, WatchlistRepository.class,
         AuditLogRepository.class, OutboxEventRepository.class, AuthServiceClient.class, KafkaTemplate.class,
+        WalletOperationRepository.class, PlatformTransactionManager.class, StripeClient.class,
         jakarta.persistence.EntityManagerFactory.class})
 class InvestmentServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
+		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
+				com.ga.investmentservice.Client.MyFatoorahClient.class).isEmpty());
+		org.junit.jupiter.api.Assertions.assertNotNull(webApplicationContext.getBean(StripeClient.class));
 	}
 
 	@org.springframework.beans.factory.annotation.Autowired
