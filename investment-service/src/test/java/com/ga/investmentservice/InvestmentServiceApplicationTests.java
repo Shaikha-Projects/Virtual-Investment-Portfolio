@@ -13,6 +13,8 @@ import org.springframework.transaction.PlatformTransactionManager;
         "jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration,org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration,org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "investment.market-simulation.enabled=false",
+        "ai.help.enabled=false",
+        "ai.help.api-key=",
         "stripe.enabled=true",
         "myfatoorah.enabled=false"
 })
@@ -26,6 +28,15 @@ class InvestmentServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
+		org.junit.jupiter.api.Assertions.assertEquals("false", webApplicationContext.getEnvironment().getProperty("ai.help.enabled"));
+		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
+				com.ga.investmentservice.Service.HelpRetrievalService.class).isEmpty());
+		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
+				org.springframework.ai.chat.model.ChatModel.class).isEmpty());
+		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
+				org.springframework.ai.embedding.EmbeddingModel.class).isEmpty());
+		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
+				org.springframework.ai.vectorstore.VectorStore.class).isEmpty());
 		org.junit.jupiter.api.Assertions.assertTrue(webApplicationContext.getBeansOfType(
 				com.ga.investmentservice.Client.MyFatoorahClient.class).isEmpty());
 		org.junit.jupiter.api.Assertions.assertNotNull(webApplicationContext.getBean(StripeClient.class));
@@ -47,6 +58,8 @@ class InvestmentServiceApplicationTests {
 		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/v3/api-docs"))
 				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
 				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.paths['/help/ask'].post.security[0].bearerAuth").isArray())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.schemas.HelpResponse.properties.available").doesNotExist())
 				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
 				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"));
 		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/assets"))

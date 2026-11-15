@@ -110,6 +110,29 @@ class ServiceMigrationTest {
     }
 
     @Test
+    void unfundedPortfolioCannotBuyOrReserveCashForBuyOrder() {
+        portfolio.setCashBalance(new BigDecimal("0.00"));
+        portfolio.setInitialFunding(new BigDecimal("0.00"));
+        portfolio.setReservedCash(BigDecimal.ZERO);
+        BuyAssetRequest buy = mock(BuyAssetRequest.class);
+        when(buy.getAssetId()).thenReturn(1L);
+        when(buy.getQuantity()).thenReturn(BigDecimal.ONE);
+        assertThrows(BusinessRuleException.class, () -> assetService().buyAsset("owner@example.com", buy));
+
+        CreateOrderRequest request = mock(CreateOrderRequest.class);
+        when(request.getAssetId()).thenReturn(1L);
+        when(request.getOrderType()).thenReturn(TransactionType.BUY);
+        when(request.getQuantity()).thenReturn(BigDecimal.ONE);
+        when(request.getLimitPrice()).thenReturn(new BigDecimal("10.00"));
+        assertThrows(BusinessRuleException.class, () -> orderService().placeLimitOrder("owner@example.com", request));
+        assertEquals(new BigDecimal("0.00"), portfolio.getCashBalance());
+        assertEquals(BigDecimal.ZERO, portfolio.getReservedCash());
+        verifyNoInteractions(events, audit);
+        verify(orders, never()).save(any());
+        verify(transactions, never()).save(any());
+    }
+
+    @Test
     void buyAndSellPreserveBalancesCostBasisAndNotificationContent() {
         AssetService service = assetService();
         BuyAssetRequest buy = mock(BuyAssetRequest.class);

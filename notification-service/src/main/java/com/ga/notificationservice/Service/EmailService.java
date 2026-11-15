@@ -226,12 +226,12 @@ public class EmailService {
 
                     <p style="color: #555;">Your Starting Virtual Balance</p>
 
-                    <h2 style="color: #1e3a5f;">$100,000.00</h2>
+                    <h2 style="color: #1e3a5f;">$0.00</h2>
 
                 </div>
 
                 <p style="margin-top: 25px;">
-                    Start exploring the market and building your portfolio!
+                    Add virtual funds through Cash Wallet using Stripe Sandbox before buying assets.
                 </p>
 
                 <hr>

@@ -796,6 +796,49 @@ class WalletServiceTest {
     }
 
     @Test
+    void zeroFundingPortfolioCanDepositThenBuyWithoutReportingFundingAsProfit() {
+        portfolio.setCashBalance(new BigDecimal("0.00"));
+        portfolio.setInitialFunding(new BigDecimal("0.00"));
+        portfolio.setReservedCash(BigDecimal.ZERO);
+        DepositResponse pending = walletService.createPendingDeposit(request("10.00"), "first-funding");
+        assertEquals(new BigDecimal("0.00"), portfolio.getCashBalance());
+        WalletOperation operation = operations.get("first-funding");
+        stubVerification(operation);
+        walletService.verifyPendingDeposit(pending.reference());
+        assertEquals(new BigDecimal("10.00"), portfolio.getCashBalance());
+        assertEquals(new BigDecimal("0.00"), portfolio.getInitialFunding());
+
+        var assets = mock(com.ga.investmentservice.Repository.AssetRepository.class);
+        var holdings = mock(com.ga.investmentservice.Repository.HoldingRepository.class);
+        var transactions = mock(com.ga.investmentservice.Repository.TransactionRepository.class);
+        var asset = new com.ga.investmentservice.Model.Asset();
+        asset.setId(1L);
+        asset.setSymbol("ABC");
+        asset.setAssetStatus(AssetStatus.ACTIVE);
+        asset.setCurrentPrice(new BigDecimal("5.00"));
+        when(assets.findByIdForUpdate(1L)).thenReturn(Optional.of(asset));
+        when(holdings.findByPortfolioAndAsset(portfolio, asset)).thenReturn(Optional.empty());
+        when(transactions.save(any(com.ga.investmentservice.Model.Transaction.class))).thenAnswer(call -> call.getArgument(0));
+        var service = new AssetService(assets, new CurrentUser(), holdings, transactions, portfolioRepository,
+                mock(AuditLogService.class), new TradeExecutionService(holdings, transactions),
+                mock(InvestmentEventService.class), walletOperationRepository);
+        ReflectionTestUtils.setField(service, "entityManager", mock(EntityManager.class));
+        when(walletOperationRepository.sumCompletedDepositsByPortfolioId(5L)).thenReturn(new BigDecimal("10.00"));
+        when(walletOperationRepository.sumCompletedWithdrawalsByPortfolioId(5L)).thenReturn(BigDecimal.ZERO);
+        when(holdings.findByPortfolio(portfolio)).thenReturn(List.of());
+        assertEquals(0, service.getPortfolioPerformance("investor@example.com").getTotalGainLoss().compareTo(BigDecimal.ZERO));
+
+        var buy = mock(com.ga.investmentservice.DTO.Request.BuyAssetRequest.class);
+        when(buy.getAssetId()).thenReturn(1L);
+        when(buy.getQuantity()).thenReturn(BigDecimal.ONE);
+        // use the same transaction boundary as a normal trade
+        new TransactionTemplate(transactionManager).execute(status -> service.buyAsset("investor@example.com", buy));
+        assertEquals(new BigDecimal("5.00"), portfolio.getCashBalance());
+        assertEquals(BigDecimal.ZERO, portfolio.getReservedCash());
+        verify(holdings).save(any());
+    }
+
+    @Test
     void verifiesTenDollarDepositOnlyOnce() {
         WalletOperation operation = pendingDeposit();
         stubVerification(operation);

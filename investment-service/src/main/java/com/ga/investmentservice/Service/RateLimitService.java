@@ -12,6 +12,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitService {
     //buckets for investment API requests
     private final ConcurrentHashMap<String, Bucket> investmentBuckets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Bucket> helpBuckets = new ConcurrentHashMap<>();
+
+    public boolean allowHelpRequest(String email) {
+        Bucket bucket = helpBuckets.computeIfAbsent(email, key -> Bucket.builder()
+                .addLimit(Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1)))).build());
+        return bucket.tryConsume(1);
+    }
 
     //method to create limit rate investment bucket
     private Bucket createInvestmentBucket() {

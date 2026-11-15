@@ -51,7 +51,7 @@ function serviceBase(path) {
   const pathname = path.split(/[?#]/, 1)[0]
   const matches = prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)
   if (['/auth', '/profile', '/admin/users', '/uploads'].some(matches)) return AUTH_BASE
-  if (['/assets', '/portfolio', '/orders', '/watchlist', '/price-alerts', '/admin/assets', '/admin/audit-logs'].some(matches)) return INVESTMENT_BASE
+  if (['/assets', '/portfolio', '/orders', '/watchlist', '/price-alerts', '/admin/assets', '/admin/audit-logs', '/help'].some(matches)) return INVESTMENT_BASE
   if (matches('/notifications')) return NOTIFICATION_BASE
   throw new ApiError('Unknown API endpoint.')
 }

@@ -1,8 +1,20 @@
 # Virtual Investment Portfolio System
 
-A full-stack **virtual investment simulation platform** built with **Java 17, Spring Boot, PostgreSQL, React, and Vite**. Investors start with **$100,000 in virtual funds** and can buy and sell simulated assets, place limit orders, and monitor portfolio performance without using real money.
+A full-stack **virtual investment simulation platform** built with **Java 17, Spring Boot, PostgreSQL, React, and Vite**. New investors start with **$0 in virtual funds** and fund their portfolios through Cash Wallet using Stripe Sandbox before trading. Investors can buy and sell simulated assets, place limit orders, and monitor portfolio performance without using real money.
 
 Project 3 builds on the original investment application with concurrent order execution, scheduled market simulation, database locking, asynchronous notifications, stronger rate limiting, and expanded portfolio analytics.
+
+New portfolios explicitly receive $0 cash and $0 initial funding. For databases where V001-V003 are already applied, run `investment-service/src/main/resources/db/migration/V004__zero_initial_funding_default.sql` manually to align the database default. It changes only the default for future inserts; existing balances and funding records remain unchanged. Do not rerun V001-V003.
+
+## AI Help
+
+Investor accounts can open **AI Help** for documentation-based application guidance, not investment advice. Answers use sections retrieved from the bundled investor [user guide](investment-service/src/main/resources/help/user-guide.md) and show their documentation sources. The assistant cannot access private account records or perform account actions.
+
+AI Help is disabled by default. To enable it, configure Investment Service with `AI_HELP_ENABLED=true` and `GEMINI_API_KEY` from an unbilled Gemini Developer API Free Tier project. Keep the key in the environment. The configurable defaults are `AI_HELP_CHAT_MODEL=gemini-3.5-flash-lite` and `AI_HELP_EMBEDDING_MODEL=gemini-embedding-001`; no Vertex AI or paid Google Cloud services are used. Google controls free-tier availability and quotas; use a project without billing to avoid paid usage.
+
+`AI_HELP_TIMEOUT_MS` defaults to 10000, `AI_HELP_TOP_K` to 3, and `AI_HELP_MIN_SCORE` to 0.65. `AI_HELP_CACHE_DIRECTORY` can point to a writable persistent directory in Docker to reuse documentation embeddings. Changed documentation or embedding configuration rebuilds the index. Each investor has a separate limit of five Help requests per minute on each application instance. Unavailable indexing, provider failures, or quota exhaustion return a controlled unavailable response. Questions are sent to Google for embeddings and, when documentation is retrieved, answer generation; do not enter private information. Conversations remain only in the current page's React state.
+
+The normal tests use mocked providers. The optional `HelpGeminiLiveTest` runs only when `HELP_GEMINI_LIVE_TEST=true` and `GEMINI_API_KEY` are set locally; it tests documentation guidance without account or payment operations. Live PostgreSQL provisioning requires the separate isolated-database test configuration and has not been independently verified on the application database.
 
 ## Table of Contents
 
@@ -31,7 +43,7 @@ Project 3 builds on the original investment application with concurrent order ex
 
 ## Project Overview
 
-The Virtual Investment Portfolio System provides a safe learning environment for trading with virtual money. After email verification, each investor receives a virtual portfolio with an initial balance of **$100,000**. Investors can explore assets, trade, track holdings and orders, and examine financial performance. Administrators manage assets, users, and audit information.
+The Virtual Investment Portfolio System provides a safe learning environment for trading with virtual money. After email verification, each new investor receives a virtual portfolio with **$0 cash and $0 initial funding**. Existing portfolios keep their recorded balances and initial funding. New investors must add virtual funds through Cash Wallet using Stripe Sandbox before buying assets or placing BUY limit orders. Investors can explore assets, trade, track holdings and orders, and examine financial performance. Administrators manage assets, users, and audit information.
 
 The backend exposes secured REST endpoints; React provides the investor and administrator interfaces; PostgreSQL stores accounts, trades, orders, market history, and portfolio history. This is an **educational simulator**, not a real-money brokerage or a source of live exchange prices.
 
@@ -120,11 +132,11 @@ The dashboard calculates current portfolio values from cash, holdings, purchase 
 | Invested cost basis | Sum of `holding quantity × average purchase price` |
 | Total portfolio value | Cash balance + holdings market value |
 | Unrealized P/L | Holdings market value − invested cost basis |
-| Overall gain/loss | Total portfolio value − initial $100,000 |
-| Overall return (%) | Overall gain/loss ÷ initial $100,000 × 100 |
+| Overall gain/loss | Total portfolio value − contributed capital + completed withdrawals |
+| Overall return (%) | Overall gain/loss ÷ contributed capital × 100; zero if contributed capital is zero |
 | Realized P/L for a SELL | Sale proceeds − cost basis of shares sold |
 
-Overall-return calculations assume the virtual starting capital remains $100,000, with no later deposits, withdrawals, or account-balance resets.
+Contributed capital is recorded initial funding plus completed wallet deposits. Completed withdrawals are added back when calculating overall gain/loss. Deposits are funding, not investment profit. Existing portfolios retain their historical initial funding; newly provisioned portfolios start at $0.
 
 ### Realized Profit/Loss
 
