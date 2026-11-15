@@ -148,6 +148,29 @@ class PortfolioPerformancePostgresTest {
     }
 
     @Test
+    void verifiedUserReceivesZeroCashAndFundingWithoutResettingExistingPortfolio() {
+        Fixture fixture = fixture("0.00", "0.00", true);
+        PortfolioRepository portfolios = context.getBean(PortfolioRepository.class);
+        Portfolio created = portfolios.findById(fixture.portfolioId).orElseThrow();
+        amount("0.00", created.getCashBalance());
+        amount("0.00", created.getInitialFunding());
+        amount("0.00", created.getReservedCash());
+        amount("0", performance(fixture).getTotalReturnPercentage());
+
+        Fixture existing = fixture("100000.00", "12345.67");
+        Portfolio before = portfolios.findById(existing.portfolioId).orElseThrow();
+        write().execute(status -> {
+            new PortfolioProvisioningService(portfolios).createPortfolio(existing.userId);
+            return null;
+        });
+        Portfolio after = portfolios.findById(existing.portfolioId).orElseThrow();
+        amount("12345.67", after.getCashBalance());
+        amount("100000.00", after.getInitialFunding());
+        assertEquals(before.getCreatedAt(), after.getCreatedAt());
+        assertEquals(before.getUpdatedAt(), after.getUpdatedAt());
+    }
+
+    @Test
     void initialFundingAndCompletedAggregatesUseRealPostgresMappingsAndFilters() {
         Fixture fixture = fixture("100000.00", "100030.00");
         write().execute(status -> {
@@ -246,6 +269,10 @@ class PortfolioPerformancePostgresTest {
     }
 
     private Fixture fixture(String initialFunding, String cash) {
+        return fixture(initialFunding, cash, false);
+    }
+
+    private Fixture fixture(String initialFunding, String cash, boolean provision) {
         Fixture fixture = write().execute(status -> {
             String email = "performance-" + UUID.randomUUID() + "@example.invalid";
             Long userId = jdbc().queryForObject("""
@@ -254,10 +281,19 @@ class PortfolioPerformancePostgresTest {
                     VALUES ('Performance', 'Test', '00000000000', ?, 'unusable-test-password', 'USER',
                         'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
                     """, Long.class, email);
-            Long portfolioId = jdbc().queryForObject("""
+            Long portfolioId;
+            if (provision) {
+                PortfolioProvisioningService provisioning = new PortfolioProvisioningService(context.getBean(PortfolioRepository.class));
+                new com.ga.investmentservice.Event.UserVerifiedConsumer(provisioning,
+                        tools.jackson.databind.json.JsonMapper.builder().build())
+                        .receive("{\"userId\":" + userId + "}");
+                portfolioId = jdbc().queryForObject("SELECT id FROM public.portfolios WHERE user_id = ?", Long.class, userId);
+            } else {
+                portfolioId = jdbc().queryForObject("""
                     INSERT INTO public.portfolios (user_id, cash_balance, reserved_cash, initial_funding, created_at, updated_at)
                     VALUES (?, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
                     """, Long.class, userId, new BigDecimal(cash), new BigDecimal(initialFunding));
+            }
             return new Fixture(userId, portfolioId, email);
         });
         fixtures.add(fixture);
