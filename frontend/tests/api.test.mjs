@@ -83,6 +83,7 @@ test('API paths route to their microservices without a monolith fallback', async
     ['/portfolio/transactions?page=2&sort=createdAt,desc', 8085], ['/portfolio/performance', 8085], ['/portfolio/history', 8085],
     ['/orders', 8085], ['/orders/7/cancel', 8085], ['/watchlist', 8085], ['/watchlist/1', 8085],
     ['/price-alerts', 8085], ['/price-alerts/1/cancel', 8085],
+    ['/help/ask', 8085],
     ['/admin/assets', 8085], ['/admin/assets/1/status', 8085],
     ['/admin/assets/execute-pending', 8085], ['/admin/audit-logs?page=1', 8085],
     ['/notifications/subscribe', 8083],

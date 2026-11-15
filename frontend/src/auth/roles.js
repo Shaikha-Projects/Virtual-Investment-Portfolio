@@ -24,6 +24,7 @@ const workspaces = {
       ['wallet', 'Cash Wallet', 'wallet'],
       ['watchlist', 'Watchlist', 'watchlist'],
       ['price-alerts', 'Price Alerts', 'bell'],
+      ['help', 'AI Help', 'info'],
       profile,
     ],
     investmentNotifications: true,
