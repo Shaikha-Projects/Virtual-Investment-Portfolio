@@ -1,0 +1,21 @@
+log_format portfolio '$remote_addr [$time_local] $request_method $uri $status';
+server {
+    listen 80;
+    server_name ${PUBLIC_HOST};
+    access_log /var/log/nginx/access.log portfolio;
+    # Keep the container health check local; it must not follow public DNS/TLS redirects.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "frontend ready\n";
+    }
+    location / { return 308 https://${PUBLIC_HOST}$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name ${PUBLIC_HOST};
+    ssl_certificate /etc/letsencrypt/live/${PUBLIC_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    include /etc/nginx/snippets/routes.conf;
+}
