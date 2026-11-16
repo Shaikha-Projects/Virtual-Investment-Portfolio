@@ -1,0 +1,5 @@
+# Exclude sources, uploads, secrets and unrelated build reports from the context.
+**
+!Dockerfile
+!target/
+!target/investment-service-0.0.1-SNAPSHOT.jar

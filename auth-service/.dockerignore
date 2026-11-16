@@ -1,0 +1,5 @@
+# Only the JAR produced by successful CI is needed by the existing Dockerfile.
+**
+!Dockerfile
+!target/
+!target/auth-service-0.0.1-SNAPSHOT.jar
