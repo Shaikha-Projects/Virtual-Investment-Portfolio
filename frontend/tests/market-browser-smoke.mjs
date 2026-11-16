@@ -16,11 +16,17 @@ socket.addEventListener('message', ({ data }) => {
     const task = pending.get(message.id); pending.delete(message.id)
     if (message.error) task.reject(new Error(message.error.message)); else task.resolve(message.result)
   }
-  if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text)
+  if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text)
 })
 const send = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })) })
-async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+async function evaluate(expression, attempt = 0) {
+  let result
+  try { result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }) }
+  catch (error) {
+    if (attempt >= 10 || !/navigated|context.*destroyed|Cannot find context/i.test(error.message)) throw error
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return evaluate(expression, attempt + 1)
+  }
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed')
   return result.result.value
 }
@@ -89,9 +95,9 @@ try {
   await send('Page.navigate', { url: appUrl })
   await wait(`document.readyState === 'complete' && typeof window.__marketState === 'function'`)
   await evaluate(`localStorage.clear(); sessionStorage.clear(); localStorage.token = 'synthetic-market-user'; window.__marketReload = true`)
-  await send('Page.reload'); await wait(`!window.__marketReload && document.querySelector('.portfolio-overview')`)
-  assert.equal(await evaluate(`document.querySelector('.price-history-chart')`), null)
-  assert.equal(await evaluate('window.__marketTimers.size'), 0)
+  await send('Page.reload'); await wait(`!window.__marketReload && document.querySelector('.orbit-overview')`)
+  await wait(`Boolean(document.querySelector('.asset-performance .price-history-chart'))`)
+  assert.equal(await evaluate('window.__marketTimers.size'), 2)
   await click('Assets'); await wait(`document.querySelectorAll('tbody tr').length === 2`)
   assert.equal(await evaluate('window.__marketTimers.size'), 1)
   assert.equal(await count('/assets/1/price-history'), 0)
@@ -112,7 +118,7 @@ try {
   await click('View AAPL details'); await wait(`document.body.innerText.includes('Latest 100 / 100 records') && Boolean(document.querySelector('.price-history-chart'))`)
   assert.equal(await count('/assets'), before)
   assert.equal(await evaluate('window.__marketTimers.size'), 2)
-  assert.equal(await evaluate(`document.querySelectorAll('nav button').length`), 7)
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('nav button'), button => button.getAttribute('aria-label')).includes('Price Alerts')`))
   await evaluate(`document.querySelector('.price-history-chart').focus()`)
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 })
   await wait(`document.querySelector('.price-chart-readout').textContent.includes('$91.10')`)
@@ -164,12 +170,12 @@ try {
   await wait(`Boolean(document.querySelector('.asset-history-panel .loading-state'))`)
   await click('Back to Market'); await evaluate('window.__releaseHistory()')
   assert.equal(await evaluate('window.__marketTimers.size'), 1)
-  await click('Menu'); await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-overview'))`)
-  assert.equal(await evaluate('window.__marketTimers.size'), 0)
-  assert.equal(await evaluate(`document.querySelector('.price-history-chart')`), null)
+  await state({deferHistory:false,deferCatalog:false})
+  await click('Menu'); await click('Dashboard'); await wait(`Boolean(document.querySelector('.asset-performance .price-history-chart'))`)
+  await wait(`window.__marketTimers.size === 2`)
   assert.ok(await evaluate(`window.__marketCalls.every(call => call.bearer === 'Bearer synthetic-market-user')`))
   assert.deepEqual(exceptions, [])
-  console.log('PASS market browser smoke: 10-second polling, movement, retained trade input, filters/sort/back, shared catalog request, real latest-100 history, hover/keyboard, responsive chart, sell, safe stale/error/empty/single/loading states, retry, no overlapping requests, abort/timer cleanup, and unchanged Dashboard. Mock API and controlled timers only.')
+  console.log('PASS market browser smoke: 10-second polling, movement, retained trade input, filters/sort/back, shared catalog request, real latest-100 history, hover/keyboard, responsive chart, sell, safe stale/error/empty/single/loading states, retry, no overlapping requests, abort/timer cleanup, and dashboard polling integration. Mock API and controlled timers only.')
 } finally {
   if (injection) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injection.identifier })
   socket.close()

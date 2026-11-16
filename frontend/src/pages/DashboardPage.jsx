@@ -1,60 +1,53 @@
 import { useResource } from '../hooks/useResource'
-import { allocation, percentage } from '../api/analytics'
-import { date, money } from '../api/format'
-import { Resource } from '../components/UI'
+import { allocation } from '../api/analytics'
+import { money } from '../api/format'
+import { Resource, Table } from '../components/UI'
 import Icon from '../components/Icon'
 import PortfolioHistory from '../components/PortfolioHistory'
+import AssetPerformance from '../components/AssetPerformance'
 
-function metric(value) {
-  const amount = value == null || String(value).trim() === '' ? NaN : Number(value)
-  return { amount, available: Number.isFinite(amount), tone: Number.isFinite(amount) && amount !== 0 ? amount < 0 ? 'negative' : 'positive' : '' }
-}
+const colors = ['#2d5686', '#c3a05b', '#298782', '#8299b1', '#81699a', '#a96b72', '#647985']
+function amount(value) { return value == null || String(value).trim() === '' || !Number.isFinite(Number(value)) ? '—' : money(value) }
+function tone(value) { return Number(value) > 0 ? 'positive' : Number(value) < 0 ? 'negative' : '' }
 
-function ReturnCard({ label, value, detail, icon, color = true }) {
-  const { amount, available, tone } = metric(value)
-  return <article className="summary-card kpi-card"><div className="kpi-heading"><span>{label}</span><span className="icon-tile"><Icon name={icon || (available && amount < 0 ? 'down' : 'up')} size={18} /></span></div><h3 className={color ? tone : ''}>{available ? money(amount) : '—'}</h3><p>{detail}</p></article>
-}
-
-function OverallReturn({ data }) {
-  const gain = metric(data.totalGainLoss), percent = metric(data.totalReturnPercentage)
-  return <div className="gain-pill overall-return"><span>Overall Return:</span><strong className={gain.tone}>{gain.available ? (gain.amount > 0 ? '+' : '') + money(gain.amount) : '—'}</strong><strong className={percent.tone}>({percent.available ? (percent.amount > 0 ? '+' : '') + percent.amount.toFixed(2) + '%' : '—'})</strong></div>
+function PortfolioValue({ value }) {
+  const formatted = amount(value)
+  const decimal = formatted.lastIndexOf('.')
+  return <p className="folio-value" data-testid="total-portfolio">{decimal < 0 ? formatted : <>{formatted.slice(0, decimal)}<span>{formatted.slice(decimal)}</span></>}</p>
 }
 
 function AllocationChart({ rows }) {
-  return <div className="allocation-content">
-    <figure className="donut-figure">
-      <svg viewBox="0 0 220 220" className="donut" role="img" aria-label={`Allocation of ${rows.length} holdings by current market value. Percentages are listed in the legend.`}>
-        <circle className="donut-track" cx="110" cy="110" r="83" fill="none" strokeWidth="22" />
-        {rows.map(row => <circle key={row.holdingId} cx="110" cy="110" r="83" fill="none" stroke={row.color} strokeWidth="22" pathLength="100" strokeDasharray={`${row.percentage} ${100 - row.percentage}`} strokeDashoffset={-row.offset} transform="rotate(-90 110 110)"><title>{row.assetSymbol}: {row.percentage.toFixed(1)}%, {money(row.currentValue)}</title></circle>)}
-      </svg>
-      <figcaption><strong>{rows.length}</strong><span>{rows.length === 1 ? 'position' : 'positions'}</span></figcaption>
-    </figure>
-    <ul className="allocation-legend">{rows.map(row => <li key={row.holdingId}><span className="legend-dot" style={{ backgroundColor: row.color }} /><span className="legend-name"><strong>{row.assetSymbol}</strong><small>{row.assetName}</small></span><span className="legend-value"><strong>{row.percentage.toFixed(1)}%</strong><small>{money(row.currentValue)}</small></span></li>)}</ul>
-  </div>
+  return <div className="folio-allocation-chart"><figure>
+    <svg viewBox="0 0 180 180" role="img" aria-label="Allocation by current holdings value. Values are listed alongside.">
+      <circle cx="90" cy="90" r="65" fill="none" stroke="var(--folio-border)" strokeWidth="22" />
+      {rows.map((row, index) => <circle key={row.holdingId} cx="90" cy="90" r="65" fill="none" stroke={colors[index % colors.length]} strokeWidth="22" pathLength="100" strokeDasharray={`${row.percentage} ${100 - row.percentage}`} strokeDashoffset={-row.offset} transform="rotate(-90 90 90)"><title>{row.assetSymbol}: {row.percentage.toFixed(1)}%, {money(row.currentValue)}</title></circle>)}
+    </svg><figcaption><strong>{rows.length}</strong><span>{rows.length === 1 ? 'asset' : 'assets'}</span></figcaption>
+  </figure><ul>{rows.map((row, index) => <li key={row.holdingId}><span className="allocation-key" style={{ background: colors[index % colors.length] }} /><strong>{row.assetSymbol}</strong><span>{row.percentage.toFixed(1)}%</span></li>)}</ul></div>
 }
 
 export default function DashboardPage({ api, revision, navigate }) {
   const performance = useResource(api, '/portfolio/performance', revision)
   const holdings = useResource(api, '/portfolio/holdings', revision)
-  const transactions = useResource(api, '/portfolio/transactions?size=5&sort=createdAt,desc', revision)
   const data = performance.data
   const rows = allocation(holdings.data || [])
-  const quickActions = [['assets', 'Buy Assets', 'plus'], ['holdings', 'View Holdings', 'holdings'], ['transactions', 'Transactions', 'transactions'], ['watchlist', 'Watchlist', 'watchlist']]
-  return <section className="portfolio-overview">
-    <div className="page-heading"><div><span className="eyebrow">Your investment workspace</span><h2>Portfolio overview<span className="heading-dot">.</span></h2><p className="muted">Welcome back. Here’s where your portfolio stands.</p></div><button onClick={() => navigate('assets')}><Icon name="plus" size={17} />Buy assets</button></div>
-    <Resource resource={performance}>{data && <>
-      <article className="portfolio-hero"><div><span className="hero-label"><span className="live-dot" />Total portfolio value</span><p className="hero-value" data-testid="total-portfolio">{money(data.totalPortfolioValue)}</p><OverallReturn data={data} /></div><div className="hero-aside"><Icon name="shield" size={24} /><strong>Your strategy. Your portfolio.</strong><span>Explore investing with virtual funds.</span><span className="badge">Virtual trading account</span></div></article>
-      <div className="kpi-grid">
-        <ReturnCard label="Available Cash" value={data.cashBalance} icon="wallet" color={false} detail="Ready for your next investment" />
-        <ReturnCard label="Holdings Market Value" value={data.holdingsValue} icon="holdings" color={false} detail="Current value of your positions" />
-        <ReturnCard label="Unrealized Profit/Loss" value={data.unrealizedGainLoss} detail={Number(data.totalCostBasis) > 0 ? percentage(data.unrealizedGainLoss, data.totalCostBasis).toFixed(2) + '% of invested cost basis' : 'Build your first position'} />
-        <ReturnCard label="Realized Profit/Loss" value={data.realizedGainLoss} detail="Recorded SELL profits and losses. Older sales may be excluded." />
+  return <section className="orbit-overview" aria-label="Portfolio overview">
+    <h2 className="sr-only">Portfolio overview</h2>
+    <Resource resource={performance}>{data && <div className="folio-summary">
+      <div className="folio-total"><div className="folio-kicker">Total portfolio value <span>Virtual account</span></div><PortfolioValue value={data.totalPortfolioValue} />
+        <div className="folio-return"><span>Overall return</span><strong className={tone(data.totalGainLoss)}>{Number(data.totalGainLoss) > 0 ? '+' : ''}{amount(data.totalGainLoss)}</strong><span className={tone(data.totalReturnPercentage)}>({data.totalReturnPercentage == null || String(data.totalReturnPercentage).trim() === '' || !Number.isFinite(Number(data.totalReturnPercentage)) ? '—' : `${Number(data.totalReturnPercentage) > 0 ? '+' : ''}${Number(data.totalReturnPercentage).toFixed(2)}%`})</span></div>
+        <dl className="folio-metrics">{[['Invested cost basis', data.totalCostBasis], ['Holdings value', data.holdingsValue], ['Unrealized P/L', data.unrealizedGainLoss, true], ['Realized P/L', data.realizedGainLoss, true]].map(([label, value, semantic]) => <div key={label}><dt>{label}</dt><dd className={semantic ? tone(value) : ''}>{semantic && Number(value) > 0 ? '+' : ''}{amount(value)}</dd></div>)}</dl>
       </div>
-    </>}</Resource>
-    <PortfolioHistory api={api} revision={revision} />
-    <div className="dashboard-allocation"><article className="card allocation-panel"><div className="panel-heading"><div><span className="eyebrow">Diversification</span><h3>Asset allocation</h3></div><Icon name="pie" /></div><Resource resource={holdings} empty={!rows.length} emptyText="Your allocation starts with your first investment. Browse assets to build your portfolio."><AllocationChart rows={rows} /></Resource></article></div>
-    <div className="activity-grid"><article className="card"><div className="panel-heading"><div><span className="eyebrow">Latest activity</span><h3>Recent transactions</h3></div><button className="text-button" onClick={() => navigate('transactions')}>View all <Icon name="arrow" size={15} /></button></div><Resource resource={transactions} empty={!transactions.data?.content?.length} emptyText="No transactions yet. Your trading activity will appear here."><ul className="recent-transactions">{transactions.data?.content?.map(item => <li key={item.transactionId}><span className={`activity-icon ${item.transactionType === 'SELL' ? 'sell' : ''}`}><Icon name={item.transactionType === 'SELL' ? 'up' : 'down'} size={18} /></span><div><strong>{item.transactionType === 'SELL' ? 'Sold' : 'Bought'} {item.assetSymbol}</strong><small>{item.quantity} units · {date(item.createdAt)}</small></div><div className="transaction-amount"><strong>{money(item.totalAmount)}</strong><span className={`badge ${item.transactionType.toLowerCase()}`}>{item.transactionType}</span></div></li>)}</ul></Resource></article>
-    </div>
-    <div className="quick-actions" aria-label="Portfolio quick actions">{quickActions.map(([target, label, icon]) => <button className="secondary" key={target} onClick={() => navigate(target)}><Icon name={icon} size={18} /><span>{label}</span><Icon name="arrow" size={16} /></button>)}</div>
+      <aside className="folio-wallet" aria-label="Wallet summary"><span className="folio-kicker">Cash Balance</span><strong>{amount(data.cashBalance)}</strong><span>Virtual USD · Includes any reserved cash</span><div className="actions"><button onClick={() => navigate('wallet')}>Deposit</button><button className="secondary" onClick={() => navigate('wallet')}>Withdraw</button></div></aside>
+    </div>}</Resource>
+    <div className="folio-charts"><PortfolioHistory api={api} revision={revision} integrated /><AssetPerformance api={api} revision={revision} /></div>
+    <div className="folio-bottom"><article className="folio-holdings"><div className="folio-section-heading"><h2>My holdings</h2><span>{holdings.data?.length ?? '—'} positions</span><button className="text-button" onClick={() => navigate('holdings')}>View all holdings <Icon name="arrow" size={15} /></button></div>
+      <p className="folio-table-hint">Scroll the table sideways to see all values and weights.</p>
+      <Resource resource={holdings} empty={!holdings.data?.length} emptyText="Your first investment will appear here."><Table label="Holdings preview"><thead><tr><th scope="col">Asset</th><th scope="col">Quantity</th><th scope="col">Current price</th><th scope="col">Current value</th><th scope="col">Weight of holdings</th></tr></thead><tbody>{holdings.data?.slice(0, 5).map(holding => {
+        const index = rows.findIndex(row => row.holdingId === holding.holdingId)
+        const weight = rows[index]?.percentage
+        return <tr key={holding.holdingId}><th scope="row"><span className="holding-symbol"><span className="holding-monogram" style={{ background: colors[Math.max(index, 0) % colors.length] }}>{holding.assetSymbol?.[0]}</span><strong>{holding.assetSymbol}</strong><small>{holding.assetName}</small></span></th><td>{holding.quantity}</td><td>{amount(holding.currentPrice)}</td><td>{amount(holding.currentValue)}</td><td><span className="holding-weight">{weight == null ? '—' : `${weight.toFixed(1)}%`}{weight != null && <span className="weight-track" aria-hidden="true"><span style={{ width: `${weight}%`, background: colors[index % colors.length] }} /></span>}</span></td></tr>
+      })}</tbody></Table></Resource>
+    </article><aside className="folio-side"><article><h2>Portfolio allocation</h2><Resource resource={holdings} empty={!rows.length} emptyText="Allocation appears when you hold assets with a positive value."><AllocationChart rows={rows} /></Resource></article><button className="folio-help" onClick={() => navigate('help')}><Icon name="info" size={17} /><strong>AI Help</strong><span>Application guidance</span><Icon name="arrow" size={18} /></button></aside></div>
+    <p className="folio-disclosure">Virtual investing, real perspective. Recorded SELL gains may exclude older sales. Holdings and portfolio values refresh when this view loads or after an account action.</p>
   </section>
 }

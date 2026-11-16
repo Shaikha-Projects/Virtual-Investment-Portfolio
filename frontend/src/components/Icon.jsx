@@ -1,5 +1,4 @@
 const paths = {
-  logo: <><path d="M4 19V9m5 10V5m5 14v-7m5 7V3" /><path d="m3 6 5-3 6 5 7-6" /></>,
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
   assets: <><path d="m3 7 9-4 9 4-9 4-9-4Zm0 5 9 4 9-4M3 17l9 4 9-4" /></>,
   holdings: <><rect x="3" y="7" width="18" height="14" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12a22 22 0 0 0 18 0M12 11v4" /></>,
@@ -28,5 +27,5 @@ const paths = {
 }
 
 export default function Icon({ name, size = 20, className = '' }) {
-  return <svg className={`icon ${className}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name] || paths.chart}</svg>
+  return <svg className={`icon ${className}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{name === 'logo' ? <image href="/branding/counterweight-symbol.svg" width="24" height="24" /> : paths[name] || paths.chart}</svg>
 }

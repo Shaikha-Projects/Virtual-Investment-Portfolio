@@ -28,8 +28,14 @@ function send(method, params = {}) {
     socket.send(JSON.stringify({ id, method, params }))
   })
 }
-async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+async function evaluate(expression, attempt = 0) {
+  let result
+  try { result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }) }
+  catch (error) {
+    if (attempt >= 10 || !/navigated|context.*destroyed|Cannot find context/i.test(error.message)) throw error
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return evaluate(expression, attempt + 1)
+  }
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed')
   return result.result.value
 }
@@ -143,7 +149,7 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
   assert.ok(await evaluate(`(() => { const table = document.querySelector('.table-scroll'); return table.scrollWidth > table.clientWidth && getComputedStyle(table).overflowX === 'auto' })()`))
   assert.equal(await evaluate('document.documentElement.scrollWidth'), 375)
-  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#main-content section')).backgroundColor`), 'rgb(21, 31, 48)')
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('#main-content section')).backgroundColor`), 'rgba(0, 0, 0, 0)')
   await click('Menu'); await click('Asset Management'); await header('Asset Management')
   await click('Menu'); await click('Audit Logs'); await header('Audit Logs'); await wait(`document.querySelectorAll('tbody tr').length === 2`)
   await send('Emulation.clearDeviceMetricsOverride')

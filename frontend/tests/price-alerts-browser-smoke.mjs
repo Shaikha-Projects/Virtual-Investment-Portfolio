@@ -28,8 +28,14 @@ function send(method, params = {}) {
     socket.send(JSON.stringify({ id, method, params }))
   })
 }
-async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+async function evaluate(expression, attempt = 0) {
+  let result
+  try { result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }) }
+  catch (error) {
+    if (attempt >= 10 || !/navigated|context.*destroyed|Cannot find context/i.test(error.message)) throw error
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return evaluate(expression, attempt + 1)
+  }
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed')
   return result.result.value
 }
@@ -90,7 +96,7 @@ try {
   await new Promise(resolve => setTimeout(resolve, 300))
   await wait(`Boolean(document.querySelector('input[name=emailAddress]'))`)
   await field('emailAddress', 'alerts@example.test'); await field('password', 'fixture-input'); await click('Login')
-  await wait(`Boolean(document.querySelector('.portfolio-overview'))`)
+  await wait(`Boolean(document.querySelector('.orbit-overview'))`)
   await click('Price Alerts'); await wait(`Boolean(document.querySelector('.price-alert-form'))`)
   await wait(`document.body.textContent.includes('No price alerts yet.')`)
   await select('assetId', '7')
@@ -132,13 +138,13 @@ try {
     assert.ok(await evaluate(`document.querySelector('.table-scroll').clientWidth <= document.querySelector('.price-alerts-page').clientWidth`))
   }
   await evaluate('window.__delayList = true')
-  await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-overview'))`)
+  await click('Dashboard'); await wait(`Boolean(document.querySelector('.orbit-overview'))`)
   await click('Price Alerts'); await wait(`Boolean(window.__releaseList)`)
   assert.ok(await evaluate(`Boolean(document.querySelector('.price-alerts-page .loading-state'))`))
   await evaluate('window.__alerts = []; window.__delayList = false; window.__releaseList()')
   await wait(`document.body.textContent.includes('No price alerts yet.')`)
   await evaluate('window.__failList = true')
-  await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-overview'))`)
+  await click('Dashboard'); await wait(`Boolean(document.querySelector('.orbit-overview'))`)
   await click('Price Alerts'); await wait(`Boolean(document.querySelector('.price-alerts-page .alert-error'))`)
   await evaluate('window.__failList = false'); await click('Try again')
   await wait(`document.body.textContent.includes('No price alerts yet.')`)

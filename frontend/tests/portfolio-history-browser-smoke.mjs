@@ -28,8 +28,14 @@ function send(method, params = {}) {
     socket.send(JSON.stringify({ id, method, params }))
   })
 }
-async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+async function evaluate(expression, attempt = 0) {
+  let result
+  try { result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }) }
+  catch (error) {
+    if (attempt >= 10 || !/navigated|context.*destroyed|Cannot find context/i.test(error.message)) throw error
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return evaluate(expression, attempt + 1)
+  }
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed')
   return result.result.value
 }
@@ -82,21 +88,18 @@ try {
   await field('emailAddress', 'history@example.test'); await field('password', 'fixture-input'); await click('Login')
   await wait(`Boolean(document.querySelector('.portfolio-history-panel svg'))`)
   assert.equal(await count(), 4)
-  assert.equal(await evaluate(`document.querySelectorAll('.kpi-card').length`), 4)
-  assert.equal(await evaluate(`document.querySelector('.overall-return').textContent`), 'Overall Return:+$300.00(+0.30%)')
-  assert.ok(await evaluate(`document.querySelector('.overall-return strong').classList.contains('positive')`))
+  assert.equal(await evaluate(`document.querySelectorAll('.folio-metrics > div').length`), 4)
+  assert.equal(await evaluate(`document.querySelector('.folio-return').textContent`), 'Overall return+$300.00(+0.30%)')
+  assert.ok(await evaluate(`document.querySelector('.folio-return strong').classList.contains('positive')`))
   assert.equal(await evaluate(`Boolean(document.querySelector('.holdings-cost-basis, .holdings-breakdown')) || document.body.textContent.includes('Holdings breakdown')`), false)
   assert.equal(await evaluate(`document.body.textContent.includes('Historical performance is not available.')`), false)
-  assert.deepEqual(await evaluate(`Array.from(document.querySelector('.portfolio-overview').children, element => element.className)`), ['page-heading', 'portfolio-hero', 'kpi-grid', 'card portfolio-history-panel', 'dashboard-allocation', 'activity-grid', 'quick-actions'])
-  for (const [width, columns, activityColumns] of [[1440, 4, 1], [800, 2, 1], [375, 1, 1]]) {
+  assert.equal(await evaluate(`document.querySelectorAll('.folio-charts > article').length`), 2)
+  assert.equal(await evaluate(`Boolean(document.querySelector('.activity-grid'))`), false)
+  for (const [width, columns] of [[1440, 4], [800, 2], [375, 2]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 540 })
-    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.kpi-grid')).gridTemplateColumns.split(' ').length`), columns)
-    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.activity-grid')).gridTemplateColumns.split(' ').length`), activityColumns)
-    assert.ok(await evaluate(`Math.abs(document.querySelector('.activity-grid > .card').getBoundingClientRect().width - document.querySelector('.dashboard-allocation').getBoundingClientRect().width) < 1`), 'Recent transactions must use the full available width')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.folio-metrics')).gridTemplateColumns.split(' ').length`), columns)
     assert.ok(await evaluate(`document.documentElement.scrollWidth <= ${width}`), 'Dashboard must not overflow horizontally')
   }
-  await evaluate(`document.querySelector('.activity-grid .text-button').click()`); await wait(`document.querySelector('.content h2')?.textContent === 'Transaction History'`)
-  await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-history-panel svg'))`)
   const initialHistoryCalls = await evaluate('window.__historyCalls.length')
   for (const [range, expected] of [['1D', 1], ['1W', 2], ['1M', 3], ['ALL', 4]]) {
     await click(range); await wait(`document.querySelector('button[aria-pressed=true]')?.textContent === '${range}'`)
@@ -127,22 +130,22 @@ try {
   await evaluate(`window.__history = [{totalPortfolioValue: 123456.78, recordedAt: new Date().toISOString()}]; window.__releaseHistory()`)
   await wait(`Boolean(document.querySelector('.portfolio-history-panel svg'))`)
   assert.equal(await count(), 1)
-  assert.equal(await evaluate(`document.querySelectorAll('.kpi-card').length`), 4)
+  assert.equal(await evaluate(`document.querySelectorAll('.folio-metrics > div').length`), 4)
   await evaluate('window.__delayHistory = false')
-  for (const [label, title] of [['Buy Assets', 'Available Assets'], ['View Holdings', 'My Holdings'], ['Transactions', 'Transaction History'], ['Watchlist', 'My Watchlist']]) {
-    await evaluate(`Array.from(document.querySelectorAll('.quick-actions button')).find(button => button.textContent === '${label}').click()`)
-    await wait(`document.querySelector('.content h2')?.textContent === '${title}'`)
+  for (const label of ['Assets', 'My Holdings', 'Transactions', 'Watchlist']) {
+    await click(label)
+    await wait(`document.querySelector('.topbar h1')?.textContent === '${label}'`)
     await click('Dashboard'); await wait(`Boolean(document.querySelector('.portfolio-history-panel svg'))`)
   }
-  for (const [value, expected, tone] of [[-300, 'Overall Return:-$300.00(-300.00%)', 'negative'], [0, 'Overall Return:$0.00(0.00%)', ''], [null, 'Overall Return:—(—)', '']]) {
+  for (const [value, expected, tone] of [[-300, 'Overall return-$300.00(-300.00%)', 'negative'], [0, 'Overall return$0.00(0.00%)', ''], [null, 'Overall return—(—)', '']]) {
     await evaluate(`window.__performance = {totalGainLoss: ${value}, totalReturnPercentage: ${value}, realizedGainLoss: ${value}, unrealizedGainLoss: ${value}}`)
-    await remount(); await wait(`Boolean(document.querySelector('.overall-return'))`)
-    assert.equal(await evaluate(`document.querySelector('.overall-return').textContent`), expected)
-    assert.equal(await evaluate(`document.querySelector('.overall-return strong').className`), tone)
-    assert.equal(await evaluate(`document.querySelectorAll('.kpi-card h3')[3].className`), tone)
+    await remount(); await wait(`Boolean(document.querySelector('.folio-return'))`)
+    assert.equal(await evaluate(`document.querySelector('.folio-return').textContent`), expected)
+    assert.equal(await evaluate(`document.querySelector('.folio-return strong').className`), tone)
+    assert.equal(await evaluate(`document.querySelectorAll('.folio-metrics dd')[3].className`), tone)
   }
   assert.deepEqual(exceptions, [])
-  console.log('PASS dashboard browser: four cards, signed/neutral/missing returns, section order, removed holdings breakdown, full-width recent transactions at desktop/tablet/mobile sizes, 4/2/1 summary columns, holdings and recent-transactions navigation, authenticated history API, all time filters, keyboard inspection, single snapshot, empty/invalid history, loading and error/retry. Mock API only.')
+  console.log('PASS portfolio-history browser: financial metric rail, signed/neutral/missing returns, integrated charts, 4/2/2 metric columns, grouped navigation, authenticated history API, all time filters, keyboard inspection, single snapshot, empty/invalid history, loading and error/retry. Mock API only.')
 } finally {
   await send('Emulation.clearDeviceMetricsOverride'); socket.close()
 }

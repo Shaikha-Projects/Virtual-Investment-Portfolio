@@ -3,6 +3,7 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+kafka-data/
 
 ### STS ###
 .apt_generated
@@ -34,3 +35,11 @@ build/
 
 # User uploaded files
 uploads/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local Kafka backup
+kafka-backup/

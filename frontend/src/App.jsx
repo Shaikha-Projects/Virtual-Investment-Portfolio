@@ -3,6 +3,8 @@ import { Alert } from './components/UI'
 import AuthPage from './pages/AuthPage'
 import PortfolioShell from './components/PortfolioShell'
 import './styles.css'
+import './stage-one.css'
+import './blue-hour.css'
 
 export default function App() {
   const session = useSession()

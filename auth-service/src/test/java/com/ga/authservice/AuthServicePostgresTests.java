@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 //Opt in only with the real PostgreSQL credentials available. Kafka and mail remain mocked.
 @EnabledIfEnvironmentVariable(named = "AUTH_POSTGRES_TESTS", matches = "true")
 @SpringBootTest(properties = {
+        "ADMIN_EMAIL=",
+        "ADMIN_PASSWORD=",
         "jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "internal.service.key=synthetic-test-service-key",
         "spring.mail.username=test",

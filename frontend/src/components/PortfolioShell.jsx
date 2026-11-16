@@ -19,13 +19,12 @@ import { TransactionFeedbackProvider } from '../hooks/TransactionFeedback'
 
 function CashBalance({ api, revision }) {
   const resource = useResource(api, '/portfolio/performance', revision)
-  return <p className="balance" role="status"><Icon name="wallet" size={15} />{resource.loading ? 'Updating cash balance…' : resource.error ? 'Cash balance temporarily unavailable' : `Available cash: ${money(resource.data?.cashBalance)}`}</p>
+  return <p className="balance" role="status"><Icon name="wallet" size={15} />{resource.loading ? 'Updating cash balance…' : resource.error ? 'Cash balance temporarily unavailable' : `Cash Balance: ${money(resource.data?.cashBalance)}`}</p>
 }
 
 export default function PortfolioShell({ session }) {
   const [requestedSection, setSection] = useState(() => location.pathname === '/wallet' && session.user.role === 'USER' ? 'wallet' : workspaceFor(session.user.role)?.home || '')
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
   const [revision, setRevision] = useState(0)
   const [priceAlertRevision, setPriceAlertRevision] = useState(0)
   const onPriceAlertTriggered = useCallback(() => setPriceAlertRevision(value => value + 1), [])
@@ -43,9 +42,14 @@ export default function PortfolioShell({ session }) {
   const navigate = value => {
     if (!workspace?.navigation.some(([allowed]) => allowed === value)) return
     setSection(value); setMessage(''); setMobileOpen(false)
+    document.querySelectorAll('.orbit-header details[open]').forEach(menu => { menu.open = false })
     if (value === 'wallet') window.history.replaceState(null, '', '/wallet')
     else if (location.pathname === '/wallet') window.history.replaceState(null, '', '/')
-    requestAnimationFrame(() => document.getElementById('main-content')?.focus())
+    requestAnimationFrame(() => {
+      const content = document.getElementById('main-content')
+      content?.scrollTo(0, 0)
+      content?.focus()
+    })
   }
   useEffect(() => {
     if (!mobileOpen) return
@@ -57,7 +61,7 @@ export default function PortfolioShell({ session }) {
     const keyboard = event => {
       if (event.key === 'Escape') setMobileOpen(false)
       if (event.key !== 'Tab') return
-      const controls = [...sidebar.querySelectorAll('button:not(:disabled)')].filter(element => element.getClientRects().length)
+      const controls = [...sidebar.querySelectorAll('button:not(:disabled), summary')].filter(element => element.getClientRects().length)
       const first = controls[0], last = controls[controls.length - 1]
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
@@ -70,6 +74,19 @@ export default function PortfolioShell({ session }) {
       if (previousFocus?.isConnected) previousFocus.focus()
     }
   }, [mobileOpen])
+  useEffect(() => {
+    const close = event => {
+      document.querySelectorAll('.orbit-header details[open]').forEach(menu => {
+        if (event.type === 'keydown' && event.key === 'Escape') {
+          menu.open = false
+          menu.querySelector('summary')?.focus()
+        } else if (event.type === 'pointerdown' && !menu.contains(event.target)) menu.open = false
+      })
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', close)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close) }
+  }, [])
   const shared = { api: session.api, revision, orderRevision, priceAlertRevision, refresh, navigate }
   const pages = admin
     ? { admin: AdminDashboard, 'admin-assets': AdminAssets, 'admin-users': AdminUsers, 'admin-audit-logs': AdminAuditLogs, profile: ProfilePage }
@@ -77,19 +94,20 @@ export default function PortfolioShell({ session }) {
   const Page = workspace ? pages[section] : null
   const currentLabel = workspace?.navigation.find(([value]) => value === section)?.[1]
   const links = entries => entries.map(([value, label, icon]) => (
-    <button key={value} aria-current={section === value ? 'page' : undefined} aria-label={label} title={collapsed ? label : undefined} onClick={() => navigate(value)}><Icon name={icon} size={19} /><span className="nav-text">{label}</span>{section === value && <span className="nav-active-dot" />}</button>
+    <button key={value} aria-current={section === value ? 'page' : undefined} aria-label={label} onClick={() => navigate(value)}><Icon name={icon} size={19} /><span className="nav-text">{({ holdings: 'Holdings', orders: 'Orders', wallet: 'Wallet' })[value] || label}</span></button>
   ))
+  const entries = values => workspace.navigation.filter(([value]) => values.includes(value))
   if (!Page) return <main className="login-page"><div className="login-card"><Alert>We could not confirm your account role. Please sign in again.</Alert><button onClick={() => session.logout()}>Return to login</button></div></main>
-  return <TransactionFeedbackProvider value={transactionFeedback}><div className={`dashboard ${collapsed ? 'sidebar-collapsed' : ''}`}>
+  return <TransactionFeedbackProvider value={transactionFeedback}><div className={`dashboard orbit-shell ${!admin && section === 'wallet' ? 'wallet-shell' : ''}`}>
     <a className="skip-link" href="#main-content">Skip to content</a>
     {mobileOpen && <button className="nav-backdrop" onClick={() => setMobileOpen(false)} aria-label="Close navigation" />}
-    <aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`} id="primary-navigation" role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined} aria-label="Application sidebar">
-      <div className="brand"><div className="brand-icon"><Icon name="logo" size={25} /></div><div className="brand-text"><h2>Virtual Portfolio</h2><span>INVESTMENT PLATFORM</span></div><button className="sidebar-close icon-button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><Icon name="close" /></button></div>
-      <nav aria-label="Main navigation"><p className="nav-label">{admin ? 'Administration' : 'Workspace'}</p>{links(workspace.navigation)}</nav>
-      <div className="sidebar-bottom"><div className="practice-note"><Icon name="shield" size={20} /><div><strong>{admin ? 'Administration workspace' : 'Built for your next move'}</strong><p>{admin ? 'Manage assets and account access.' : 'A virtual account. Real experience.'}</p></div></div><button className="collapse-button secondary" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}><Icon name="collapse" /><span className="nav-text">Collapse sidebar</span></button></div>
-    </aside>
-    <div className="dashboard-main"><header className="topbar"><button className="mobile-menu icon-button" aria-label="Menu" aria-expanded={mobileOpen} aria-controls="primary-navigation" onClick={() => setMobileOpen(value => !value)}><Icon name="menu" /></button><div className="topbar-title"><span className="breadcrumb">{admin ? 'Administration' : 'Workspace'} <span>/</span></span><h1>{currentLabel}</h1></div><div className="header-account"><span className="account-mode"><span className="live-dot" />{admin ? 'Admin workspace' : 'Virtual account'}</span>{workspace.investmentNotifications && <Notifications session={session} onLimitOrderExecuted={onLimitOrderExecuted} onPriceAlertTriggered={onPriceAlertTriggered} />}<div className="account-identity"><span className="account-avatar">{session.user.emailAddress.charAt(0).toUpperCase()}</span><div><strong>{session.user.emailAddress}</strong><span>{admin ? 'Administrator' : 'Investor account'}</span></div></div><button className="icon-button logout-button" aria-label="Logout" title="Logout" onClick={() => session.logout()}><Icon name="logout" size={19} /></button></div></header>
-      <main id="main-content" className="content" tabIndex={-1}>{!admin && section !== 'dashboard' && section !== 'wallet' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><GlobalNotice message={transactionFallback?.text} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div><footer className="workspace-footer"><span>Virtual Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer></main>
+    <div className="dashboard-main"><header className={`topbar orbit-header ${admin ? 'admin-header' : 'investor-header'}`}><a className="orbit-brand" href="#main-content" onClick={event => { event.preventDefault(); navigate(workspace.home) }}><Icon name="logo" size={30} /><strong>Investment Portfolio</strong></a><span className="orbit-account-type">{admin ? 'Administration' : 'Virtual account'}</span>
+      <button className="orbit-menu-toggle icon-button" aria-label="Menu" aria-expanded={mobileOpen} aria-controls="primary-navigation" onClick={() => setMobileOpen(value => !value)}><Icon name="menu" /></button>
+      <nav className={`orbit-navigation ${mobileOpen ? 'is-open' : ''}`} id="primary-navigation" aria-label="Main navigation" role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined}><button className="orbit-menu-close icon-button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><Icon name="close" /></button>
+        {links(entries(admin ? ['admin', 'admin-assets', 'admin-users', 'admin-audit-logs'] : ['dashboard', 'assets', 'holdings', 'transactions', 'orders', 'wallet', 'watchlist', 'price-alerts', 'help']))}
+      </nav><h1 className="sr-only">{currentLabel}</h1>
+      <div className="header-account">{workspace.investmentNotifications && <Notifications session={session} onLimitOrderExecuted={onLimitOrderExecuted} onPriceAlertTriggered={onPriceAlertTriggered} />}<details className="orbit-account-menu"><summary aria-label="Account menu"><span className="account-avatar">{session.user.emailAddress.charAt(0).toUpperCase()}</span><span aria-hidden="true">⌄</span></summary><div className="orbit-nav-popover"><p>{session.user.emailAddress}</p>{links(entries(['profile']))}<button aria-label="Logout" onClick={() => session.logout()}><Icon name="logout" size={18} />Logout</button></div></details></div></header>
+      <main id="main-content" className={`content ${!admin && section === 'dashboard' ? 'overview-content' : 'legacy-content'}`} tabIndex={-1}>{!admin && section !== 'dashboard' && section !== 'wallet' && <CashBalance api={session.api} revision={revision} />}<GlobalNotice message={message} /><GlobalNotice message={transactionFallback?.text} /><div className="page-enter" key={section}><Page {...shared} user={session.user} /></div>{section !== 'dashboard' && <footer className="workspace-footer"><span>Investment Portfolio</span><span>Practice with purpose. Invest with perspective.</span></footer>}</main>
     </div>
   </div></TransactionFeedbackProvider>
 }

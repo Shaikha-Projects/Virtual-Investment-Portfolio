@@ -1,0 +1,231 @@
+/* Stage 1: horizontal shell and dashboard. Legacy page styling stays in styles.css. */
+@font-face { font-family: Manrope; src: url('./assets/fonts/Manrope.ttf') format('truetype'); font-style: normal; font-weight: 200 800; font-display: swap; }
+@font-face { font-family: 'Source Sans 3'; src: url('./assets/fonts/SourceSans3.ttf') format('truetype'); font-style: normal; font-weight: 200 900; font-display: swap; }
+.orbit-shell {
+  --folio-canvas: #eef2f5; --folio-ink: #192b3d; --folio-muted: #52677f;
+  --folio-border: #becbd7; --folio-blue: #2d5686; --folio-positive: #186c59; --folio-negative: #ac3549;
+  background: var(--folio-canvas); min-height: 100vh;
+}
+.orbit-shell .dashboard-main { margin-left: 0; }
+.orbit-shell .content { max-width: 1720px; padding: 0 40px 22px; }
+.orbit-shell .legacy-content { background: var(--bg); padding-top: 28px; min-height: calc(100vh - 88px); }
+.orbit-header.topbar { position: relative; z-index: 50; max-width: 1640px; margin: 0 40px; padding: 18px 0; min-height: 84px; gap: 20px; background: transparent; border-bottom: 1px solid #718398; box-shadow: none; color: var(--folio-ink); font-family: Manrope, 'Segoe UI', sans-serif; }
+.orbit-brand { display: inline-flex; gap: 12px; align-items: center; color: var(--folio-ink); text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+.orbit-brand .icon { color: var(--folio-blue); }
+.orbit-brand strong { font-size: 21px; font-weight: 750; letter-spacing: -.055em; }
+.orbit-account-type { padding-left: 18px; border-left: 1px solid var(--folio-border); color: var(--folio-muted); font-size: 12px; white-space: nowrap; }
+.orbit-navigation { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.orbit-navigation > button, .orbit-nav-group > summary { min-height: 46px; padding: 10px 13px; border: 0; border-radius: 0; background: transparent; color: var(--folio-ink); font-size: 14px; font-weight: 550; white-space: nowrap; position: relative; cursor: pointer; }
+.orbit-navigation > button > .icon { display: none; }
+.orbit-navigation > button[aria-current=page], .orbit-nav-group > summary.is-current { font-weight: 750; }
+.orbit-navigation > button[aria-current=page]::after, .orbit-nav-group > summary.is-current::after { content: ''; height: 3px; background: var(--folio-blue); position: absolute; bottom: -20px; left: 12px; right: 12px; }
+.orbit-navigation > button:hover:not(:disabled), .orbit-nav-group > summary:hover { background: #e1e8ef; }
+.orbit-nav-group, .orbit-account-menu { position: relative; }
+.orbit-nav-group > summary, .orbit-account-menu > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; }
+.orbit-header summary::-webkit-details-marker { display: none; }
+.orbit-nav-popover { position: absolute; top: calc(100% + 9px); left: 0; min-width: 210px; padding: 7px; border: 1px solid #bdcad7; border-radius: 8px; background: #f8fafc; color: var(--folio-ink); box-shadow: 0 12px 30px #2133471f; }
+.orbit-nav-popover button { width: 100%; justify-content: flex-start; background: transparent; color: var(--folio-ink); padding: 12px; font-size: 14px; font-weight: 500; }
+.orbit-nav-popover button:hover:not(:disabled), .orbit-nav-popover button[aria-current=page] { background: #e4ebf3; }
+.orbit-nav-popover p { padding: 10px 12px; margin: 0; font-size: 13px; color: var(--folio-muted); overflow-wrap: anywhere; }
+.orbit-account-menu > summary { cursor: pointer; min-height: 44px; color: var(--folio-ink); }
+.orbit-account-menu .account-avatar { width: 40px; height: 40px; background: #192b3d; color: white; border: 0; font-size: 14px; }
+.orbit-account-menu .orbit-nav-popover { right: 0; left: auto; max-width: min(290px, calc(100vw - 32px)); }
+.orbit-header .header-account { gap: 15px; margin-left: 12px; }
+.orbit-header .notification-button { color: var(--folio-ink); width: 44px; height: 44px; background: #ffffff99; border-radius: 50%; }
+.orbit-header .notification-button:hover:not(:disabled) { color: var(--folio-blue); background: white; }
+.orbit-menu-toggle.icon-button, .orbit-menu-close.icon-button { display: none; }
+.orbit-shell :focus-visible { outline-color: #2d5686; }
+.orbit-overview { --text: var(--folio-ink); --muted: var(--folio-muted); --border: var(--folio-border); color: var(--folio-ink); font-family: 'Source Sans 3', 'Segoe UI', sans-serif; color-scheme: light; }
+.orbit-overview h2, .orbit-overview h3 { font-family: Manrope, 'Segoe UI', sans-serif; color: var(--folio-ink); font-size: 21px; line-height: 1.3; font-weight: 650; letter-spacing: -.04em; margin: 0; }
+.orbit-overview button { background: #192b3d; color: white; border-radius: 24px; font-size: 14px; min-height: 44px; padding: 10px 21px; }
+.orbit-overview button:hover:not(:disabled) { background: #2d5686; }
+.orbit-overview button.secondary { background: transparent; border: 1px solid #304458; color: var(--folio-ink); }
+.orbit-overview button.secondary:hover:not(:disabled) { background: #dce5ed; }
+.orbit-overview button.text-button { border: 0; padding: 5px 0; min-height: 44px; background: transparent; color: var(--folio-blue); text-decoration: underline; text-underline-offset: 3px; }
+.orbit-overview .positive { color: var(--folio-positive) !important; }
+.orbit-overview .negative { color: var(--folio-negative) !important; }
+.folio-summary { display: grid; grid-template-columns: minmax(0, 2.5fr) minmax(260px, 1fr); gap: 30px; padding: 20px 0; }
+.folio-total { min-width: 0; }
+.folio-kicker { font-family: Manrope, 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: .16em; font-size: 11px; font-weight: 600; }
+.folio-kicker > span { display: inline-block; margin-left: 12px; padding: 3px 9px; border: 1px solid #a7b8c9; border-radius: 18px; font-size: 9px; letter-spacing: .08em; color: var(--folio-muted); vertical-align: middle; }
+.folio-value { font-family: Manrope, 'Segoe UI', sans-serif; font-size: clamp(56px, 6.3vw, 104px); font-weight: 400; letter-spacing: -.075em; line-height: 1.18; margin: 8px 0 3px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.folio-value > span { font-size: .43em; letter-spacing: -.055em; color: var(--folio-muted); }
+.folio-return { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; font-size: 18px; color: var(--folio-muted); }
+.folio-return strong { font-weight: 650; }
+.folio-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 17px 0 0; }
+.folio-metrics > div { border-right: 1px solid var(--folio-border); padding-right: 12px; }
+.folio-metrics > div:last-child { border: 0; }
+.folio-metrics dt { color: var(--folio-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .075em; margin-bottom: 4px; }
+.folio-metrics dd { margin: 0; font-size: clamp(17px, 1.6vw, 25px); line-height: 1.35; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.folio-wallet { border-left: 1px solid #8e9fb2; padding-left: 28px; display: flex; flex-direction: column; align-items: stretch; justify-content: center; position: relative; isolation: isolate; gap: 7px; }
+.folio-wallet::before { content: ''; position: absolute; inset: 0 0 0 27px; background: #e9e3d5; border-radius: 9px 38px 9px 9px; z-index: -1; }
+.folio-wallet > * { margin-left: 22px; margin-right: 20px; }
+.folio-wallet > strong { font-family: Manrope, sans-serif; font-size: clamp(29px, 3.1vw, 47px); font-weight: 450; letter-spacing: -.055em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.folio-wallet > span:not(.folio-kicker) { font-size: 12px; color: #58666c; }
+.folio-wallet .actions { margin-top: 15px; flex-wrap: wrap; gap: 8px; }
+.folio-wallet .actions button { flex: 1; padding-inline: 12px; }
+.folio-charts { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); border-block: 1px solid #8e9fb2; padding: 18px 0 12px; gap: 26px; }
+.folio-charts > article { min-width: 0; }
+.folio-charts .portfolio-history-panel { margin-bottom: 0; }
+.folio-charts .price-history-chart { margin-top: 8px; }
+.folio-charts .integrated-history { padding-right: 26px; border-right: 1px solid #aab9c8; }
+.folio-charts .panel-heading, .chart-heading { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.folio-charts .panel-heading .eyebrow { display: none; }
+.folio-charts .panel-heading h3 { font-size: 21px; }
+.folio-charts .panel-heading .actions { gap: 1px; flex-wrap: nowrap; }
+.folio-charts .panel-heading button { border: 0; background: transparent; color: var(--folio-muted); min-height: 38px; padding: 8px 12px; font-size: 13px; }
+.folio-charts .panel-heading button[aria-pressed=true] { color: white; background: #192b3d; }
+.folio-charts .integrated-history .price-history-chart { padding-top: 39px; }
+.asset-selector { min-width: 0; max-width: 52%; }
+.asset-selector select { min-height: 34px; padding: 6px 24px 6px 10px; border-radius: 5px; background: #f7f9fb; color: var(--folio-ink); border: 1px solid #aab9c8; font-size: 13px; text-overflow: ellipsis; }
+.asset-chart-meta { min-height: 39px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding-top: 1px; }
+.asset-chart-meta > strong { font-family: Manrope, sans-serif; font-size: 13px; font-weight: 600; color: var(--folio-muted); }
+.asset-chart-meta > strong > span { font-size: 25px; color: var(--folio-ink); font-weight: 650; letter-spacing: -.045em; margin-left: 6px; }
+.asset-chart-meta > span { color: var(--folio-muted); font-size: 12px; }
+.orbit-overview .price-chart-grid { stroke: #b4c3d1; stroke-dasharray: 1 5; }
+.orbit-overview .price-chart-label { fill: #52677f; font-size: 12px; }
+.orbit-overview .price-chart-axis { fill: #52677f; font-size: 11px; }
+.orbit-overview .price-chart-line { stroke: #2d5686; stroke-width: 2.1; }
+.orbit-overview .price-chart-point { fill: #2d5686; stroke: #eef2f5; }
+.orbit-overview .asset-performance .price-chart-line { stroke: #298782; }
+.orbit-overview .asset-performance .price-chart-point { fill: #298782; }
+.orbit-overview .price-chart-crosshair { stroke: #748aa1; }
+.orbit-overview .price-chart-readout { min-height: 25px; margin: 0; font-size: 12px; color: var(--folio-muted); }
+.orbit-overview .price-chart-readout strong { color: var(--folio-ink); }
+.orbit-overview .price-chart-tooltip { background: #f8fafc; border-color: var(--folio-border); padding: 8px 12px; box-shadow: 0 4px 12px #20374a12; }
+.orbit-overview .price-chart-tooltip strong, .orbit-overview .price-chart-tooltip time { color: var(--folio-ink); }
+.orbit-overview .history-caption, .chart-footnote { color: var(--folio-muted); font-size: 12px; margin: 7px 0 0; line-height: 1.4; }
+.folio-bottom { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr); gap: 26px; padding-top: 16px; }
+.folio-holdings { min-width: 0; }
+.folio-table-hint { display: none; }
+.folio-section-heading { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+.folio-section-heading > span { border-left: 1px solid var(--folio-border); padding-left: 15px; font-size: 13px; color: var(--folio-muted); }
+.folio-section-heading > button { margin-left: auto; }
+.orbit-overview .table-scroll { border: 0; border-radius: 0; scrollbar-color: #9cabbc #e2e9ef; }
+.orbit-overview table { min-width: 600px; font-size: 14px; }
+.orbit-overview th, .orbit-overview td { border-bottom: 1px solid #ccd6df; padding: 12px 9px; text-align: right; color: var(--folio-ink); }
+.orbit-overview thead th { border-top: 1px solid #a7b8c9; padding-block: 8px; background: transparent; text-transform: uppercase; font-size: 11px; letter-spacing: .075em; color: var(--folio-muted); font-weight: 500; }
+.orbit-overview th:first-child { padding-left: 0; text-align: left; }
+.orbit-overview tbody tr:hover { background: #e5ebf1; }
+.holding-symbol { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.holding-symbol small { color: var(--folio-muted); font-size: 13px; font-weight: 400; max-width: 125px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.holding-monogram { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; color: white; font-size: 12px; flex-shrink: 0; }
+.holding-weight { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.weight-track { width: 70px; height: 5px; border-radius: 5px; background: #d5dee6; overflow: hidden; }
+.weight-track > span { height: 100%; display: block; border-radius: inherit; }
+.folio-side { min-width: 0; border-left: 1px solid #aab9c8; padding-left: 26px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.folio-side h2 { margin: 7px 0 8px; }
+.folio-allocation-chart { display: flex; align-items: center; gap: 10px; }
+.folio-allocation-chart figure { margin: 0; position: relative; width: 154px; flex-shrink: 0; }
+.folio-allocation-chart svg { width: 100%; display: block; }
+.folio-allocation-chart figcaption { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; line-height: 1.2; }
+.folio-allocation-chart figcaption strong { font-size: 22px; }
+.folio-allocation-chart ul { list-style: none; padding: 0; margin: 0; flex: 1; min-width: 0; max-height: 180px; overflow-y: auto; }
+.folio-allocation-chart li { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid #ccd6df; padding: 7px 0; font-size: 13px; }
+.folio-allocation-chart li > span:last-child { margin-left: auto; }
+.allocation-key { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.orbit-overview .folio-help { width: 100%; justify-content: flex-start; padding: 11px 13px; min-height: 44px; color: var(--folio-ink); background: #dce5ef; border-radius: 5px; gap: 10px; }
+.orbit-overview .folio-help:hover { background: #ccdbea; }
+.folio-help > span { font-size: 12px; color: var(--folio-muted); font-weight: 400; }
+.folio-help > .icon:last-child { margin-left: auto; }
+.folio-disclosure { margin: 20px 0 0; padding-top: 12px; border-top: 1px solid var(--folio-border); color: var(--folio-muted); font-size: 11px; line-height: 1.5; }
+.orbit-overview .empty { background: transparent; border-color: var(--folio-border); color: var(--folio-muted); min-height: 140px; }
+.orbit-overview .icon-tile { background: #dce5ef; color: var(--folio-blue); }
+.orbit-overview .alert { color: #8b3445; background: #fae9ed; border-color: #e1b7c1; font-size: 13px; }
+.orbit-overview .alert-warning { color: #775416; background: #f7efd9; border-color: #daca9e; }
+@media (min-width: 1720px) { .orbit-header.topbar { margin-inline: auto; } }
+@media (max-width: 1300px) {
+  .orbit-account-type { display: none; }
+  .orbit-header.topbar { gap: 10px; }
+  .orbit-header .header-account { gap: 8px; margin-left: 0; }
+  .orbit-navigation > button, .orbit-nav-group > summary { padding-inline: 10px; font-size: 13px; }
+  .folio-summary { grid-template-columns: minmax(0, 2.1fr) minmax(260px, 1fr); gap: 20px; }
+  .folio-metrics dt { letter-spacing: .04em; }
+  .folio-charts { gap: 20px; }
+  .folio-charts .integrated-history { padding-right: 20px; }
+  .folio-charts .panel-heading, .chart-heading { align-items: flex-start; flex-wrap: wrap; min-height: 80px; }
+  .folio-bottom { grid-template-columns: minmax(0, 1.8fr) minmax(270px, 1fr); gap: 20px; }
+  .folio-side { padding-left: 20px; }
+  .holding-symbol small, .weight-track { display: none; }
+  .folio-allocation-chart figure { width: 120px; }
+}
+@media (max-width: 1000px) {
+  .orbit-shell .content { padding-inline: 24px; }
+  .orbit-header.topbar { margin-inline: 24px; }
+  .orbit-brand strong { font-size: 18px; }
+  .orbit-brand { gap: 7px; }
+  .orbit-navigation { gap: 0; }
+  .orbit-navigation > button, .orbit-nav-group > summary { padding-inline: 8px; font-size: 12px; }
+  .folio-metrics { grid-template-columns: repeat(2, 1fr); row-gap: 12px; margin-top: 16px; }
+  .folio-metrics > div:nth-child(2) { border-right: 0; }
+  .folio-bottom { grid-template-columns: 1fr; }
+  .folio-side { border-left: 0; border-top: 1px solid var(--folio-border); padding: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+  .folio-allocation-chart { max-width: 400px; }
+  .folio-help { margin-bottom: 10px; }
+}
+@media (max-width: 800px) {
+  .orbit-header.topbar { min-height: 72px; padding-block: 12px; }
+  .orbit-menu-toggle.icon-button { display: inline-flex; color: var(--folio-ink); margin-left: auto; }
+  .orbit-header .header-account { gap: 6px; }
+  .orbit-navigation { display: none; }
+  .orbit-navigation.is-open { display: flex; position: fixed; inset: 0 auto 0 0; width: min(340px, 90vw); padding: 22px; flex-direction: column; align-items: stretch; justify-content: flex-start; background: #eef2f5; overflow-y: auto; z-index: 80; margin: 0; box-shadow: 12px 0 40px #192b3d30; }
+  .orbit-shell .nav-backdrop { z-index: 60; }
+  .orbit-menu-close.icon-button { display: inline-flex; color: var(--folio-ink); align-self: flex-end; }
+  .orbit-navigation > button, .orbit-nav-group > summary { font-size: 16px; text-align: left; justify-content: flex-start; padding: 14px; }
+  .orbit-navigation > button > .icon { display: block; }
+  .orbit-navigation > button[aria-current=page]::after, .orbit-nav-group > summary.is-current::after { bottom: 0; left: 0; width: 3px; height: 100%; }
+  .orbit-nav-group > summary { justify-content: space-between; }
+  .orbit-nav-group .orbit-nav-popover { position: static; background: #e4ebf3; border: 0; box-shadow: none; }
+  .folio-summary { grid-template-columns: minmax(0, 1fr) 250px; gap: 16px; }
+  .folio-value { font-size: clamp(45px, 7.7vw, 75px); }
+  .folio-return { font-size: 15px; }
+  .folio-kicker > span { margin: 8px 0 0; display: table; }
+  .folio-wallet { padding-left: 14px; }
+  .folio-wallet::before { left: 13px; }
+  .folio-wallet > * { margin-left: 16px; margin-right: 16px; }
+  .folio-wallet .actions { flex-direction: column; }
+  .folio-wallet > strong { font-size: 30px; }
+  .folio-charts { grid-template-columns: 1fr; gap: 18px; }
+  .folio-charts .integrated-history { border-right: 0; padding: 0 0 16px; border-bottom: 1px solid var(--folio-border); }
+  .folio-charts .panel-heading, .chart-heading { min-height: 46px; align-items: center; }
+  .folio-charts .integrated-history .price-history-chart { padding-top: 0; }
+}
+@media (max-width: 540px) {
+  .folio-table-hint { display: block; color: var(--folio-muted); font-size: 12px; margin: 0 0 10px; }
+  .orbit-shell .content { padding-inline: 18px; }
+  .orbit-header.topbar { margin-inline: 18px; gap: 6px; }
+  .orbit-brand strong { font-size: 16px; }
+  .orbit-brand .icon { width: 25px; }
+  .orbit-header .header-account .notification-button, .orbit-menu-toggle.icon-button { width: 40px; min-height: 44px; height: 44px; }
+  .orbit-account-menu > summary { gap: 2px; }
+  .orbit-account-menu > summary > span:last-child { display: none; }
+  .orbit-account-menu .account-avatar { width: 32px; height: 32px; }
+  .folio-summary { display: block; padding-top: 22px; padding-bottom: 20px; }
+  .folio-value { font-size: clamp(44px, 12.6vw, 68px); margin-top: 13px; }
+  .folio-kicker { font-size: 11px; }
+  .folio-kicker > span { display: inline-block; margin: 0 0 0 8px; font-size: 8px; }
+  .folio-metrics { margin: 20px 0; }
+  .folio-metrics dt { font-size: 11px; }
+  .folio-metrics dd { font-size: 22px; }
+  .folio-wallet { border: 0; padding: 18px; gap: 6px; }
+  .folio-wallet::before { inset: 0; border-radius: 7px 28px 7px 7px; }
+  .folio-wallet > * { margin-inline: 0; }
+  .folio-wallet > strong { font-size: 36px; }
+  .folio-wallet .actions { flex-direction: row; margin-top: 10px; }
+  .orbit-overview h2, .folio-charts .panel-heading h3 { font-size: 19px; }
+  .folio-charts .panel-heading { gap: 8px; }
+  .folio-charts .panel-heading .actions { margin-left: auto; }
+  .folio-charts .panel-heading button { padding-inline: 10px; }
+  .chart-heading { gap: 8px; }
+  .asset-selector { max-width: 48%; }
+  .asset-selector select { font-size: 12px; min-height: 44px; }
+  .asset-chart-meta { padding-block: 6px; gap: 7px; }
+  .orbit-overview .price-chart-label { font-size: 11px; }
+  .folio-section-heading { gap: 8px; flex-wrap: wrap; }
+  .folio-section-heading > span { font-size: 12px; padding-left: 8px; }
+  .folio-section-heading > button { font-size: 13px; }
+  .folio-side { display: flex; align-items: stretch; }
+  .folio-allocation-chart figure { width: 140px; }
+  .folio-allocation-chart { gap: 20px; }
+  .folio-disclosure { font-size: 11px; }
+}

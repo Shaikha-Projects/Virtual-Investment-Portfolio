@@ -282,7 +282,8 @@ class ServiceMigrationTest {
     @Test
     void snapshotsPreserveRoundedPortfolioValueAndHistoryOwnership() {
         PortfolioSnapshotRepository repository = mock(PortfolioSnapshotRepository.class);
-        PortfolioSnapshotService service = new PortfolioSnapshotService(portfolios, holdings, repository, currentUser);
+        PortfolioSnapshotService service = new PortfolioSnapshotService(portfolios, holdings, repository, currentUser,
+                new com.ga.investmentservice.Config.CacheConfiguration().portfolioHistoryCacheManager());
         when(holdings.findByPortfolio(portfolio)).thenReturn(List.of(holding));
         service.saveSnapshot(portfolio);
         ArgumentCaptor<PortfolioSnapshot> saved = ArgumentCaptor.forClass(PortfolioSnapshot.class);

@@ -12,7 +12,7 @@ export function HelpChat({ messages, question, pending, error, onChange, onSubmi
   return <section className="card help-page">
     <div className="page-heading"><div><span className="eyebrow">Application guidance</span><h2>AI Help</h2><p className="muted">Ask how to use your virtual investment workspace.</p></div><span className="icon-tile"><Icon name="info" /></span></div>
     <p className="muted help-notice" id={`${questionId}-notice`}>Application guidance only, not investment advice. Do not share passwords, tokens, payment details, or private account information.</p>
-    <div className="help-chat" role="log" aria-label="Help conversation" aria-live="polite" aria-relevant="additions" ref={chat}>
+    <div className="help-chat" tabIndex={0} role="log" aria-label="Help conversation" aria-live="polite" aria-relevant="additions" ref={chat}>
       {!messages.length && <p className="empty muted">Ask about deposits, limit orders, or another application feature.</p>}
       {messages.map(message => <article className={`help-message help-message-${message.role}`} key={message.id}>
         <strong>{message.role === 'user' ? 'You' : 'AI Help'}</strong><p>{message.text}</p>

@@ -28,8 +28,14 @@ function send(method, params = {}) {
     socket.send(JSON.stringify({ id, method, params }))
   })
 }
-async function evaluate(expression) {
-  const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+async function evaluate(expression, attempt = 0) {
+  let result
+  try { result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }) }
+  catch (error) {
+    if (attempt >= 10 || !/navigated|context.*destroyed|Cannot find context/i.test(error.message)) throw error
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return evaluate(expression, attempt + 1)
+  }
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed')
   return result.result.value
 }
@@ -42,7 +48,7 @@ async function wait(expression) {
 }
 const click = label => evaluate(`([...document.querySelectorAll('button')].find(button => (button.getAttribute('aria-label') || button.textContent.trim()) === ${JSON.stringify(label)})).click()`)
 const field = (name, value) => evaluate(`(() => { const input = document.querySelector('input[name="${name}"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
-const navigation = () => evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Main navigation"] button'), button => button.getAttribute('aria-label'))`)
+const navigation = () => evaluate(`Array.from(document.querySelectorAll('nav[aria-label="Main navigation"] button:not(.orbit-menu-close), .orbit-account-menu button[aria-label="Profile"]'), button => button.getAttribute('aria-label'))`)
 const header = text => wait(`document.querySelector('.topbar h1')?.textContent === ${JSON.stringify(text)}`)
 const apiCalls = () => evaluate('JSON.parse(sessionStorage.__roleBackend).calls')
 
@@ -163,7 +169,7 @@ try {
   await logout()
 
   await login('USER'); await header('Dashboard')
-  assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Watchlist', 'Profile'])
+  assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Cash Wallet', 'Watchlist', 'Price Alerts', 'AI Help', 'Profile'])
   assert.equal(await evaluate(`Boolean(document.querySelector('.notifications'))`), true)
   await evaluate('window.__releaseProfile()')
   assert.equal(await evaluate(`document.body.innerText.includes('Previous account data')`), false)
@@ -280,7 +286,7 @@ try {
   await login('USER'); await header('Dashboard')
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true })
   await new Promise(resolve => setTimeout(resolve, 250))
-  await click('Menu'); assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Watchlist', 'Profile'])
+  await click('Menu'); assert.deepEqual(await navigation(), ['Dashboard', 'Assets', 'My Holdings', 'Transactions', 'My Orders', 'Cash Wallet', 'Watchlist', 'Price Alerts', 'AI Help', 'Profile'])
   await click('Profile'); await wait(`document.body.innerText.includes('USER Profile')`)
   assert.equal(await evaluate('document.documentElement.scrollWidth'), 375)
   assert.deepEqual(exceptions, [])

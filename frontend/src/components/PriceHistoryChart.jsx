@@ -2,19 +2,27 @@ import { useId, useMemo, useRef, useState, useEffect } from 'react'
 import { historyScale } from '../api/market'
 import { date, money } from '../api/format'
 
-export default function PriceHistoryChart({ points, symbol, valueLabel = 'price', showDates = false }) {
+export default function PriceHistoryChart({ points, symbol, valueLabel = 'price', showDates = false, height: defaultHeight = 310 }) {
   const container = useRef(null)
   const [width, setWidth] = useState(800)
+  const [height, setHeight] = useState(defaultHeight)
   const [active, setActive] = useState(null)
   const descriptionId = useId()
   useEffect(() => {
-    const observer = new ResizeObserver(entries => setWidth(Math.max(240, entries[0].contentRect.width)))
-    observer.observe(container.current)
+    const element = container.current
+    const svg = element.querySelector('svg')
+    const observer = new ResizeObserver(() => {
+      if (!element.isConnected) return
+      setWidth(Math.max(240, element.getBoundingClientRect().width))
+      setHeight(svg.getBoundingClientRect().height)
+    })
+    observer.observe(element)
+    observer.observe(svg)
     return () => observer.disconnect()
   }, [])
   const scale = useMemo(() => historyScale(points), [points])
   const compact = width < 520
-  const height = 310, left = showDates ? 100 : 70, right = 34, top = 18, bottom = compact || showDates ? 70 : 46
+  const left = showDates ? (compact ? 86 : 100) : 70, right = 20, top = 18, bottom = compact || showDates ? 70 : 46
   const plotWidth = width - left - right
   const plotHeight = height - top - bottom
   const first = points[0].time, last = points[points.length - 1].time
@@ -23,7 +31,7 @@ export default function PriceHistoryChart({ points, symbol, valueLabel = 'price'
   const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'}${x(point)},${y(point)}`).join(' ')
   // Axis ticks use evenly spaced times, independently of the full price series.
   // Portfolio dates use two lines and fewer ticks on narrow charts.
-  const tickCount = first === last ? 1 : showDates && compact ? 3 : 5
+  const tickCount = first === last ? 1 : compact ? 3 : 5
   const ticks = Array.from({ length: tickCount }, (_, index) => ({
     time: tickCount === 1 ? first : first + (last - first) * index / (tickCount - 1),
     x: tickCount === 1 ? left + plotWidth / 2 : left + plotWidth * index / (tickCount - 1),
@@ -43,7 +51,7 @@ export default function PriceHistoryChart({ points, symbol, valueLabel = 'price'
   }
   return <div className="price-history-chart" ref={container} tabIndex={0} role="group" aria-label={`${symbol} ${valueLabel} history. Use Left and Right arrows to inspect recorded values.`} aria-describedby={descriptionId} onKeyDown={keyboard} onFocus={() => setActive(points.length - 1)} onBlur={() => setActive(null)} onPointerLeave={() => { if (document.activeElement !== container.current) setActive(null) }}>
     <p id={descriptionId} className="sr-only">{points.length} actual recorded values, from {date(points[0].recordedAt)} to {date(points[points.length - 1].recordedAt)}. Hover, touch, or use the arrow keys to inspect values.</p>
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="price-chart-svg" role="img" aria-label={`${symbol} recorded ${valueLabel} in USD over time`} onPointerMove={pointer} onPointerDown={pointer}>
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} style={{ height: `var(--history-chart-height, ${defaultHeight}px)` }} className="price-chart-svg" role="img" aria-label={`${symbol} recorded ${valueLabel} in USD over time`} onPointerMove={pointer} onPointerDown={pointer}>
       {Array.from({ length: 5 }, (_, index) => { const price = scale.min + (scale.max - scale.min) * index / 4; const coordinate = y({ price }); return <g key={index}><line x1={left} y1={coordinate} x2={width - right} y2={coordinate} className="price-chart-grid" /><text x={left - 10} y={coordinate + 4} textAnchor="end" className="price-chart-label">{money(price)}</text></g> })}
       {ticks.map((tick, index) => <text key={index} x={tick.x} y={height - bottom + 24 + (compact && !showDates ? index % 2 * 16 : 0)} textAnchor={showDates && tickCount > 1 ? index === 0 ? 'start' : index === tickCount - 1 ? 'end' : 'middle' : 'middle'} className="price-chart-label price-chart-time">{showDates ? <><tspan x={tick.x}>{new Date(tick.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</tspan><tspan x={tick.x} dy="16">{new Date(tick.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</tspan></> : new Date(tick.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</text>)}
       <text x={left} y={height - 2} className="price-chart-axis">{showDates ? 'Recorded date & time' : 'Recorded time'}</text>

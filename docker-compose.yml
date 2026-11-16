@@ -1,0 +1,81 @@
+services:
+  postgres_db:
+    image: postgres:18.6
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: investment_portfolio
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - portfolio_postgres_data:/var/lib/postgresql
+
+  auth-service:
+    image: investment-auth:local
+    ports:
+      - "8084:8084"
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/investment_portfolio
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      - postgres_db
+
+  investment-service:
+    image: investment-service:local
+    ports:
+      - "8085:8085"
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/investment_portfolio
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      AUTH_SERVICE_URL: http://auth-service:8084
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      INVESTMENT_MARKET_SIMULATION_ENABLED: "true"
+      STRIPE_ENABLED: "true"
+      AI_HELP_ENABLED: "true"
+    depends_on:
+      - postgres_db
+      - auth-service
+
+  kafka:
+    image: apache/kafka:4.1.0
+    ports:
+      - "9092:9094"
+    environment:
+      CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,EXTERNAL://:9094,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - investment-kafka-data:/tmp/kraft-combined-logs
+
+  notification-service:
+    image: investment-notification:local
+    ports:
+      - "8083:8083"
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/investment_portfolio
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      - postgres_db
+      - kafka
+
+volumes:
+  portfolio_postgres_data:
+  investment-kafka-data:
+    external: true
