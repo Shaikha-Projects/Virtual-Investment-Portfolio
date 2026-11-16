@@ -15,6 +15,8 @@
 
 The repository-root `Jenkinsfile` preserves the working Maven and npm commands. It explicitly uses the built-in Linux node, not the offline Windows agent.
 
+Immediately after checkout, Registry Preflight checks Docker tooling and Docker Hub login without building or publishing images. Invalid credentials fail here, before the lengthy tests. Credentials remain scoped to this short check and the later push stage; each login uses a separate temporary config removed on exit. All CI tests must still pass before any image is published.
+
 1. Check out the configured SCM and calculate `build-<BUILD_NUMBER>-<12-character-commit>`.
 2. Run `mvn -B clean verify` for Authentication, Investment (including Cucumber), and Notification.
 3. Run frontend `npm ci`, tests, lint and production build.
