@@ -32,6 +32,8 @@ Failures stop subsequent stages. Unstable test stages also skip delivery. The bu
 
 Docker login uses `--password-stdin`, shell expansion rather than Groovy secret interpolation, disabled command tracing, and a private temporary Docker config directory cleaned up on exit. Credentials are never committed. The service `.dockerignore` files restrict each context to its Dockerfile and packaged JAR, excluding uploads, `.env`, sources and reports.
 
+The publishing stage retries up to three times, with a 15-minute timeout per attempt inside the pipeline-wide 60-minute limit. Each attempt reauthenticates, reuses completed registry layers, and cleans its temporary login config. This handles transient upload failures without weakening the preceding CI gate. Keep the Docker Desktop host awake and connected while publishing.
+
 Registry pushes are not atomic across repositories: a failed push can leave a partial release. Use the versioned tag and only accept a successful Jenkins build with all three remote digests; do not infer success from one updated `latest` tag.
 
 ## Controller image

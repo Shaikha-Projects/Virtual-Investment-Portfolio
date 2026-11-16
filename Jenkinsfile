@@ -144,6 +144,8 @@ pipeline {
 
         stage('Docker Push') {
             steps {
+                retry(3) {
+                    timeout(time: 15, unit: 'MINUTES') {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
                         usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_TOKEN')]) {
                     // Single-quoted Groovy string: secrets expand only in the shell, never in Groovy.
@@ -172,6 +174,8 @@ pipeline {
                     '''
                 }
                 archiveArtifacts artifacts: 'delivery-manifest.txt', fingerprint: true
+                    }
+                }
             }
         }
     }
