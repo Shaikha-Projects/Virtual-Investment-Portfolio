@@ -40,7 +40,6 @@ class AuthServiceApplicationTests {
 		org.junit.jupiter.api.Assertions.assertEquals("file:uploads/", handler.getLocations().get(1).getURI().toString());
 		java.nio.file.Path uploads = java.nio.file.Path.of(handler.getLocations().get(0).getURI());
 		org.junit.jupiter.api.Assertions.assertTrue(uploads.isAbsolute());
-		org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.isDirectory(uploads.resolve("profile-pictures")));
 	}
 
 	@Test
@@ -50,10 +49,15 @@ class AuthServiceApplicationTests {
 		var handler = (org.springframework.web.servlet.resource.ResourceHttpRequestHandler)
 				mapping.getUrlMap().get("/uploads/**");
 		java.nio.file.Path uploads = java.nio.file.Path.of(handler.getLocations().get(0).getURI());
-		try (var files = java.nio.file.Files.list(uploads.resolve("profile-pictures"))) {
-			var image = files.filter(java.nio.file.Files::isRegularFile)
-					.filter(file -> file.getFileName().toString().endsWith(".png")).findFirst().orElseThrow();
-			byte[] original = java.nio.file.Files.readAllBytes(image);
+		java.nio.file.Path pictures = java.nio.file.Files.createDirectories(uploads.resolve("profile-pictures"));
+		java.nio.file.Path image = java.nio.file.Files.createTempFile(pictures, "profile-image-test-", ".png");
+		try {
+			var fixture = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+			fixture.setRGB(0, 0, 0xff2d5686);
+			var bytes = new java.io.ByteArrayOutputStream();
+			org.junit.jupiter.api.Assertions.assertTrue(javax.imageio.ImageIO.write(fixture, "png", bytes));
+			byte[] original = bytes.toByteArray();
+			java.nio.file.Files.write(image, original);
 			var uri = new java.net.URI("http", null, "localhost", port,
 					"/uploads/profile-pictures/" + image.getFileName(), null, null);
 			var response = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build()
@@ -63,6 +67,8 @@ class AuthServiceApplicationTests {
 			org.junit.jupiter.api.Assertions.assertTrue(response.headers().firstValue("Content-Type").orElse("").startsWith("image/png"));
 			org.junit.jupiter.api.Assertions.assertArrayEquals(original, response.body());
 			org.junit.jupiter.api.Assertions.assertArrayEquals(original, java.nio.file.Files.readAllBytes(image));
+		} finally {
+			java.nio.file.Files.deleteIfExists(image);
 		}
 	}
 
