@@ -143,6 +143,7 @@ if $frontend_changed; then
     if grep -Eq '(^/|(^|/)\.\.(/|$))' "$state/frontend-files.txt"; then echo 'Unsafe frontend archive' >&2; exit 1; fi
     tar -xzf "$archive" -C "$state/frontend" --no-same-owner --no-same-permissions
     test -s "$state/frontend/index.html"
+    chmod -R a+rX "$state/frontend"
     docker build --pull -t "investment-frontend:$tag" -f - "$state/frontend" <<'DOCKERFILE'
 FROM nginx:stable-alpine
 COPY . /usr/share/nginx/html
