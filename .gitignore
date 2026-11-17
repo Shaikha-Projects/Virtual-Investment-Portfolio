@@ -43,3 +43,8 @@ uploads/
 
 # Local Kafka backup
 kafka-backup/
+
+# Private database backups and investor migration material
+*.dump
+*.backup
+.migration-private/
