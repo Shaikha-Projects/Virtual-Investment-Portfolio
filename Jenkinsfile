@@ -108,7 +108,7 @@ pipeline {
                     sh 'npm ci'
                     sh 'npm test'
                     sh 'npm run lint'
-                    sh 'npm run build'
+                    sh 'VITE_AUTH_BASE_URL=/api/auth VITE_INVESTMENT_BASE_URL=/api/investment VITE_NOTIFICATION_BASE_URL=/api/notification npm run build'
                 }
             }
         }
@@ -178,10 +178,51 @@ pipeline {
                 }
             }
         }
+        stage('Deploy to AWS') {
+            // Live changes require an explicit approval for this exact successful build.
+            options { timeout(time: 15, unit: 'MINUTES') }
+            input {
+                message "Deploy ${env.IMAGE_TAG} to virtualinvestmentportfolio.duckdns.org?"
+                ok 'Deploy to AWS'
+            }
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'aws-ec2-ssh', keyFileVariable: 'AWS_SSH_KEY',
+                            usernameVariable: 'AWS_SSH_USER'),
+                    file(credentialsId: 'aws-ec2-known-hosts', variable: 'AWS_KNOWN_HOSTS')
+                ]) {
+                    sh '''
+                        set +x
+                        set -eu
+                        test "$AWS_SSH_USER" = ec2-user
+                        test -s delivery-manifest.txt
+                        grep -Fx "Commit: $GIT_COMMIT" delivery-manifest.txt
+                        grep -Fx "Build tag: $IMAGE_TAG" delivery-manifest.txt
+                        case "$IMAGE_TAG" in build-[0-9]*-[a-f0-9]*) ;; *) exit 1 ;; esac
+                        host=ec2-54-80-38-216.compute-1.amazonaws.com
+                        incoming="/home/ec2-user/.investment-deploy/$IMAGE_TAG"
+                        tar -czf frontend-dist.tgz -C frontend/dist .
+                        ssh -i "$AWS_SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+                            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$AWS_KNOWN_HOSTS" \
+                            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+                            "$AWS_SSH_USER@$host" "umask 077; mkdir -p $incoming"
+                        scp -i "$AWS_SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+                            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$AWS_KNOWN_HOSTS" \
+                            -o ConnectTimeout=15 ci/jenkins/deploy-ec2.sh frontend-dist.tgz \
+                            "$AWS_SSH_USER@$host:$incoming/"
+                        ssh -i "$AWS_SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+                            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$AWS_KNOWN_HOSTS" \
+                            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+                            "$AWS_SSH_USER@$host" \
+                            "bash $incoming/deploy-ec2.sh deploy $GIT_COMMIT $IMAGE_TAG $incoming/frontend-dist.tgz"
+                    '''
+                }
+            }
+        }
     }
 
     post {
-        success { echo 'All CI checks passed and all three service images were published to Docker Hub.' }
-        failure { echo 'Pipeline failed. Check the failing stage; a failed push may leave a partial release.' }
+        success { echo 'CI, Docker Hub publishing and approved AWS deployment completed successfully.' }
+        failure { echo 'Pipeline failed. Inspect the failed stage; an AWS deployment failure reports its rollback command.' }
     }
 }

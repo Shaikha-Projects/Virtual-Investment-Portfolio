@@ -2,3 +2,5 @@ certificates/
 certbot-work/
 certbot-logs/
 backups/
+.cd-state/
+.cd-deploy.lock
