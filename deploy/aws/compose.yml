@@ -136,6 +136,8 @@ services:
       <<: *java-common
       MAIL_USERNAME: ${MAIL_USERNAME:?Set MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD:?Set MAIL_PASSWORD}
+      EMAIL_VERIFICATION_URL: "${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}/api/auth/auth/verify"
+      EMAIL_PASSWORD_RESET_URL: "${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}/"
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
     depends_on:
       postgres_db:

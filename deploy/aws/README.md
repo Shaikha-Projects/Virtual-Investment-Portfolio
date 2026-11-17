@@ -10,7 +10,7 @@ Use **t3.medium (4 GiB RAM, x86_64)** as the smallest practical starting point f
 
 Use enough EBS free space for three service images, PostgreSQL, Kafka, Docker layers and backups (start with a 30 GiB volume and monitor). Do not run Jenkins or Maven builds here. The frontend build is a separate Node build container and should run **before** starting the stack, reducing peak memory competition.
 
-**Known backend limitation:** `notification-service/.../Service/EmailService.java` hardcodes `http://localhost:8084/auth/verify?token=...` (line 69) and `http://localhost:5173/?token=...` (line 135). No existing property changes these. Emails can be sent, but their links do not work remotely. For a controlled demo only, the recipient can replace the verification link origin/path with `https://YOUR_DOMAIN/api/auth/auth/verify?token=...`, or the reset origin with `https://YOUR_DOMAIN/?token=...`, keeping the original token private. This is **not** a finished public signup/recovery experience. A separate approved backend change and CI image release is required to parameterize these links before public release. No backend logic or image is modified here.
+**Account email links:** set the existing `PUBLIC_ORIGIN=https://virtualinvestmentportfolio.duckdns.org` (no trailing slash). Compose supplies Notification Service's `EMAIL_VERIFICATION_URL=${PUBLIC_ORIGIN}/api/auth/auth/verify` and `EMAIL_PASSWORD_RESET_URL=${PUBLIC_ORIGIN}/`. Verification goes through the Nginx Auth API prefix; reset opens the existing frontend token flow. Without these environment overrides, Notification Service retains `http://localhost:8084/auth/verify` and `http://localhost:5173/` for local development. Deploy the updated Notification image before testing these links; no link-editing workaround is needed.
 
 HTTPS with a trusted certificate is required before login, registration or payments with real credentials. HTTP mode below is only for non-sensitive connectivity checks. TLS needs a domain pointing to this instance; an IP-only deployment is not covered by this certificate procedure. Do not treat an open security-group port 443 as TLS configuration.
 
@@ -160,7 +160,7 @@ done
 In the browser over HTTPS:
 
 1. Login as the bootstrapped admin; confirm admin navigation and asset/user pages. No backend credentials appear in browser source/network responses.
-2. Register a test investor, check SMTP delivery through Notification/Kafka. Apply the documented link-origin workaround only for a controlled demo; public email flows remain a release blocker until fixed properly. Verify login, session checks and profile picture upload/retrieval.
+2. Register a test investor, check SMTP delivery through Notification/Kafka, and open the HTTPS verification link. Request password recovery and confirm the reset link opens the existing frontend flow. Verify login, session checks and profile picture upload/retrieval.
 3. Confirm all four ACTIVE assets and both charts. Verify two DB reads ~12 seconds apart show changed prices/timestamps:
 
 ```bash

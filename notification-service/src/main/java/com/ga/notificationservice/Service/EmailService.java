@@ -22,6 +22,12 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${notification.email.verification-url}")
+    private String verificationUrl;
+
+    @Value("${notification.email.password-reset-url}")
+    private String passwordResetUrl;
+
     //send a confirmation for completed virtual wallet operations
     public void sendWalletEmail(String emailAddress, String type, BigDecimal amount, UUID reference) {
         try {
@@ -66,7 +72,7 @@ public class EmailService {
             helper.setSubject("Verify Your Email - Investment Portfolio");
 
             //construct url string
-            String verificationURL = "http://localhost:8084/auth/verify?token=" + token;
+            String verificationURL = verificationUrl + "?token=" + token;
 
             //format email body
             String emailBody = """
@@ -132,7 +138,7 @@ public class EmailService {
             helper.setSubject("Reset Your Password - Investment Portfolio");
 
             //construct url string
-            String resetURL = "http://localhost:5173/?token=" + token;
+            String resetURL = passwordResetUrl + "?token=" + token;
 
             //format email body
             String emailBody = """
