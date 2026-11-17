@@ -107,7 +107,7 @@ The application runs on AWS EC2 using Docker Compose,
 with three Spring Boot microservices, React, Nginx,
 PostgreSQL, and Apache Kafka.
 
-![Production System Architecture](<img width="2862" height="1620" alt="system-architecture" src="https://github.com/user-attachments/assets/5646e742-97b6-4ee9-a603-e8526d473ec7" />)
+![Production System Architecture](docs/system-architecture.png)
 
 ## Service Boundaries and Data Ownership
 
