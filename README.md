@@ -457,7 +457,6 @@ Project 4 followed the project rubric's progression: retain the application → 
 - CI/CD configuration: `Jenkinsfile`, `ci/jenkins/`.
 - AWS deployment instructions: `deploy/aws/README.md`.
 - API documentation: service Swagger/OpenAPI and generated API artifacts where enabled.
-- Presentation: approximately **15 minutes**, including before/after architecture, Kafka event flow, Docker, Jenkins, AWS demonstration, challenges, learning and Q&A.
 
 ## Credits and Resources
 
