@@ -39,8 +39,7 @@ Project 4 continues the same application developed in Projects 2 and 3; it does 
 | **Project 3 — Concurrency** | Concurrent limit-order execution, scheduled market simulation, pessimistic database locking, asynchronous notifications, rate limiting, portfolio snapshots and charts |
 | **Project 4 — Productionization** | Three independently runnable Spring Boot services, Kafka-based messaging, Docker/Compose, Caffeine caching, automated tests including Cucumber, Jenkins CI/CD, Docker Hub releases, and AWS EC2 deployment with an HTTPS gateway |
 
-**Deployment status (November 17, 2026):** The application runs on AWS EC2 with an HTTPS frontend; admin and investor logins, migrated portfolio data, and opening Stripe Sandbox Deposit have been verified. Jenkins builds/tests and publishes versioned images to Docker Hub. The new approval-gated **Jenkins → EC2** automation is undergoing its first end-to-end verification in Build #15; it must not be described as successfully deployed by Jenkins until that build and its AWS health checks finish.
-
+**Deployment status (November 17, 2026):** The Virtual Investment Portfolio is deployed on AWS EC2 and accessible through HTTPS. All six Docker containers were verified healthy. Jenkins successfully completed CI testing and published versioned Docker images to Docker Hub. During Build #15, Jenkins connected to AWS and deployed the Authentication and Investment Services using the new release images. However, the pipeline exceeded its deployment timeout before completing the full release. The application remained operational, with the Notification Service running its previously deployed version.
 ## Features
 
 | Area | Functionality |
@@ -160,8 +159,7 @@ Core relations:
 - `assets` → holdings, price history, investment orders, watchlists and price alerts.
 - `users` → watchlist, verification and password-reset tokens.
 
-**Existing ERD (Project 3 baseline):** [View in dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646).  
-**Project 4 deliverable:** Update/export the diagram to include the additional tables and current relationships; link the finalized diagram image here before submission.
+**Project 4 ERD):** [View in dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646).  
 
 The repository contains `investment_schema.sql` and `assets_data.sql` for schema/seed reference. Never import historical schema scripts indiscriminately into a database that already has tables and user data.
 
@@ -246,7 +244,7 @@ Open `http://localhost:5173` for development. **Never use `docker compose down -
 
 ## CI/CD with Jenkins
 
-The local Jenkins controller is itself containerized (`jenkins-local`) with the persistent `jenkinsvol1` volume. Jenkins polls GitHub SCM about every five minutes because the localhost controller cannot receive public GitHub webhooks.
+The local Jenkins controller is itself containerized (`jenkins-local`) with the persistent `jenkinsvol1` volume. Jenkins runs locally inside Docker with a persistent volume. During development, SCM polling checked GitHub every five minutes to automatically trigger builds when code changed. SCM polling has since been disabled to prevent unnecessary builds. The pipeline remains available for manual execution through Jenkins.
 
 ```mermaid
 flowchart LR
@@ -267,7 +265,7 @@ flowchart LR
 3. Run frontend `npm ci`, automated tests, ESLint, and production Vite build.
 4. Build three Docker images and publish them to Docker Hub **only after CI passes**.
 5. Publish both immutable `build-N-<commit>` tags and `latest`; archive a delivery manifest with image digests.
-6. The newly added AWS CD stage uses verified SSH credentials, a deployment approval gate, versioned image tags and health checks. **As of the README's update, its first live end-to-end deployment is pending completion.**
+6. The AWS deployment stage requests manual approval before connecting securely to EC2. The deployment script updates Docker services and performs health checks. Build #15 successfully updated the Authentication and Investment Services, but Jenkins exceeded its deployment timeout before completing the full release. The end-to-end deployment stage therefore remains partially verified.
 
 ### Docker Hub images
 
@@ -383,6 +381,7 @@ Do not commit `.env`, `.pem` files, TLS private keys, database dumps, profile up
 | AWS runtime | Six containers healthy; HTTPS frontend and Admin/Investor login verified |
 | Investor migration | Rehearsal and import checks passed; AWS backup created before migration; existing Admin preserved |
 | Docker Compose | Production Compose validated; gateway/Nginx checks validated during deployment preparation |
+| Jenkins Build #15 | CI and Docker image publishing completed; AWS deployment approved; Authentication and Investment Services updated and verified healthy; pipeline ended ABORTED due to timeout |
 
 Run relevant tests locally:
 
@@ -425,7 +424,7 @@ Project 4 also maintains a separate asset API artifact, `asset-api.html`/JSON, w
 
 ### Known limitations / unfinished verification
 
-- **Jenkins → AWS automatic deployment:** first approval-gated live execution still needs a successful verified result (Build #15 or later); do not claim this stage is complete prematurely.
+- **Jenkins deployment timeout:** Build #15 successfully published all three Docker images and deployed the Authentication and Investment Services to AWS. The pipeline timed out while waiting for service health checks and did not complete the Notification Service update. All six AWS containers were subsequently confirmed healthy. The deployment timeout and full end-to-end pipeline verification remain outstanding.
 - **HTTPS renewal:** Let's Encrypt renewal has not been automated; cert expires **2027-02-15**.
 - **Email:** Public verification/reset URLs are configured; real email delivery and full registration/reset flows should be confirmed manually.
 - **Stripe:** Sandbox Deposit page navigation works; full checkout callback and credited wallet balance still require a test payment verification.
