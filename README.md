@@ -1,679 +1,486 @@
 # Virtual Investment Portfolio System
 
-A full-stack **virtual investment simulation platform** built with **Java 17, Spring Boot, PostgreSQL, React, and Vite**. New investors start with **$0 in virtual funds** and fund their portfolios through Cash Wallet using Stripe Sandbox before trading. Investors can buy and sell simulated assets, place limit orders, and monitor portfolio performance without using real money.
+**Project 4 — Productionized Backend Application**  
+General Assembly Java Developer Bootcamp · Java 17 · Spring Boot · React · PostgreSQL · Kafka · Docker · Jenkins · AWS
 
-Project 3 builds on the original investment application with concurrent order execution, scheduled market simulation, database locking, asynchronous notifications, stronger rate limiting, and expanded portfolio analytics.
+[**Live application (HTTPS)**](https://virtualinvestmentportfolio.duckdns.org) · [**GitHub repository**](https://github.com/Shaikha-Projects/Virtual-Investment-Portfolio) · [**Project planning (Jira)**](https://investmentportfolio.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog)
 
-New portfolios explicitly receive $0 cash and $0 initial funding. For databases where V001-V003 are already applied, run `investment-service/src/main/resources/db/migration/V004__zero_initial_funding_default.sql` manually to align the database default. It changes only the default for future inserts; existing balances and funding records remain unchanged. Do not rerun V001-V003.
+> **Educational simulation:** This project uses simulated asset prices and virtual portfolio balances. Stripe is configured in **test/sandbox mode**; it is not a real brokerage or an investment recommendation.
 
-## AI Help
+## Contents
 
-Investor accounts can open **AI Help** for documentation-based application guidance, not investment advice. Answers use sections retrieved from the bundled investor [user guide](investment-service/src/main/resources/help/user-guide.md) and show their documentation sources. The assistant cannot access private account records or perform account actions.
+1. [Overview and Project Evolution](#overview-and-project-evolution)
+2. [Features](#features)
+3. [Technology Stack](#technology-stack)
+4. [Microservices Architecture](#microservices-architecture)
+5. [Service Boundaries and Data Ownership](#service-boundaries-and-data-ownership)
+6. [Apache Kafka and Event-Driven Communication](#apache-kafka-and-event-driven-communication)
+7. [Database and ERD](#database-and-erd)
+8. [Caching, Concurrency, and Reliability](#caching-concurrency-and-reliability)
+9. [Docker and Local Setup](#docker-and-local-setup)
+10. [CI/CD with Jenkins](#cicd-with-jenkins)
+11. [AWS Architecture and Deployment](#aws-architecture-and-deployment)
+12. [Configuration and Security](#configuration-and-security)
+13. [Testing and Evidence](#testing-and-evidence)
+14. [API Documentation](#api-documentation)
+15. [Challenges, Limitations, and Future Work](#challenges-limitations-and-future-work)
+16. [Planning and Deliverables](#planning-and-deliverables)
+17. [Credits and Resources](#credits-and-resources)
 
-AI Help is disabled by default. To enable it, configure Investment Service with `AI_HELP_ENABLED=true` and `GEMINI_API_KEY` from an unbilled Gemini Developer API Free Tier project. Keep the key in the environment. The configurable defaults are `AI_HELP_CHAT_MODEL=gemini-3.5-flash-lite` and `AI_HELP_EMBEDDING_MODEL=gemini-embedding-001`; no Vertex AI or paid Google Cloud services are used. Google controls free-tier availability and quotas; use a project without billing to avoid paid usage.
+## Overview and Project Evolution
 
-`AI_HELP_TIMEOUT_MS` defaults to 10000, `AI_HELP_TOP_K` to 3, and `AI_HELP_MIN_SCORE` to 0.65. `AI_HELP_CACHE_DIRECTORY` can point to a writable persistent directory in Docker to reuse documentation embeddings. Changed documentation or embedding configuration rebuilds the index. Each investor has a separate limit of five Help requests per minute on each application instance. Unavailable indexing, provider failures, or quota exhaustion return a controlled unavailable response. Questions are sent to Google for embeddings and, when documentation is retrieved, answer generation; do not enter private information. Conversations remain only in the current page's React state.
+Virtual Investment Portfolio is a full-stack application where investors register and verify their accounts, fund a **virtual** wallet through Stripe Sandbox, trade simulated assets, manage limit orders, and track holdings and portfolio performance. Administrators manage users, assets, and audit activity.
 
-The normal tests use mocked providers. The optional `HelpGeminiLiveTest` runs only when `HELP_GEMINI_LIVE_TEST=true` and `GEMINI_API_KEY` are set locally; it tests documentation guidance without account or payment operations. Live PostgreSQL provisioning requires the separate isolated-database test configuration and has not been independently verified on the application database.
+Project 4 continues the same application developed in Projects 2 and 3; it does **not** replace the existing investment workflows. The focus is on moving the application toward a deployable, distributed environment.
 
-## Table of Contents
-
-- [Project Overview](#project-overview)
-- [Features at a Glance](#features-at-a-glance)
-- [Technology Stack](#technology-stack)
-- [Architecture and Database](#architecture-and-database)
-- [Authentication and User Management](#authentication-and-user-management)
-- [Investment Management](#investment-management)
-- [Market Simulation and Asset Price History](#market-simulation-and-asset-price-history)
-- [Portfolio Analytics and Performance History](#portfolio-analytics-and-performance-history)
-- [Investor Dashboard and Administration](#investor-dashboard-and-administration)
-- [Concurrency and Multithreading](#concurrency-and-multithreading)
-- [Race Conditions and Thread Safety](#race-conditions-and-thread-safety)
-- [API Rate Limiting](#api-rate-limiting)
-- [Real-Time and Email Notifications](#real-time-and-email-notifications)
-- [Audit Logging](#audit-logging)
-- [Testing and Verification](#testing-and-verification)
-- [Development Approach and Planning](#development-approach-and-planning)
-- [Entity Relationship Diagram](#entity-relationship-diagram)
-- [API Documentation](#api-documentation)
-- [Installation and Configuration](#installation-and-configuration)
-- [Challenges and Limitations](#challenges-and-limitations)
-- [Future Improvements](#future-improvements)
-- [Credits and Resources](#credits-and-resources)
-
-## Project Overview
-
-The Virtual Investment Portfolio System provides a safe learning environment for trading with virtual money. After email verification, each new investor receives a virtual portfolio with **$0 cash and $0 initial funding**. Existing portfolios keep their recorded balances and initial funding. New investors must add virtual funds through Cash Wallet using Stripe Sandbox before buying assets or placing BUY limit orders. Investors can explore assets, trade, track holdings and orders, and examine financial performance. Administrators manage assets, users, and audit information.
-
-The backend exposes secured REST endpoints; React provides the investor and administrator interfaces; PostgreSQL stores accounts, trades, orders, market history, and portfolio history. This is an **educational simulator**, not a real-money brokerage or a source of live exchange prices.
-
-## Features at a Glance
-
-| Area | Features |
+| Stage | Main work |
 |---|---|
-| Authentication | Registration, email verification, JWT login, password change/reset, profile management, USER/ADMIN authorization |
-| Trading | Direct BUY/SELL, limit BUY/SELL, cash/share reservations, cancel pending orders, transaction history |
-| Market | Simulated price updates, asset searches/filters, price history and charts, watchlist |
-| Portfolio | Total value, available cash, invested cost basis, realized/unrealized profit or loss, overall return, historical snapshots |
-| Real time | SSE notifications, automatic order-status refresh, HTML transaction-confirmation emails |
-| Administration | Asset management, soft user deactivation, paginated audit logs |
-| Reliability | Database transactions, pessimistic locks, managed thread pools, thread-safe task tracking, API rate limiting |
-| Documentation | Swagger/OpenAPI, Jira user stories, ERD, automated tests |
+| **Project 2 — Core application** | Java/Spring Boot REST API, PostgreSQL, JWT authentication, account and trading workflows |
+| **Project 3 — Concurrency** | Concurrent limit-order execution, scheduled market simulation, pessimistic database locking, asynchronous notifications, rate limiting, portfolio snapshots and charts |
+| **Project 4 — Productionization** | Three independently runnable Spring Boot services, Kafka-based messaging, Docker/Compose, Caffeine caching, automated tests including Cucumber, Jenkins CI/CD, Docker Hub releases, and AWS EC2 deployment with an HTTPS gateway |
+
+**Deployment status (November 17, 2026):** The application runs on AWS EC2 with an HTTPS frontend; admin and investor logins, migrated portfolio data, and opening Stripe Sandbox Deposit have been verified. Jenkins builds/tests and publishes versioned images to Docker Hub. The new approval-gated **Jenkins → EC2** automation is undergoing its first end-to-end verification in Build #15; it must not be described as successfully deployed by Jenkins until that build and its AWS health checks finish.
+
+## Features
+
+| Area | Functionality |
+|---|---|
+| **Accounts** | Registration, email verification, login, JWT-based authorization, password reset/change, user profiles, admin bootstrap |
+| **Portfolio and trading** | Simulated assets, direct BUY/SELL, limit orders, available/reserved cash and shares, transaction/order history |
+| **Wallet** | Stripe Sandbox deposit flow, virtual cash balance and withdrawal controls, operation history |
+| **Market** | Simulated price updates approximately every 10 seconds; price-history charts and asset search |
+| **Analytics** | Total portfolio value, cost basis, realized/unrealized P/L, historical snapshots, allocation and asset performance |
+| **Investor tools** | Watchlists, price alerts, notifications, Gemini AI Help |
+| **Administration** | User statuses/roles, asset management and audit records |
+| **Security and resilience** | Spring Security, role checks, per-endpoint rate limiting, database transactions/locks, health checks, persistent volumes |
+
+New investor portfolios start at **$0 virtual cash and $0 initial funding** and use Stripe Sandbox to add simulated funds. Historical portfolios retain their recorded funding and balances. No live stock-exchange prices are used.
 
 ## Technology Stack
 
 | Layer | Technologies |
 |---|---|
-| Backend | Java 17, Spring Boot, Spring Web, Spring Security, Spring Data JPA, Hibernate, Jakarta Bean Validation |
-| Database | PostgreSQL |
-| Authentication and API protection | JWT, Spring Security, Bucket4j |
-| Concurrency and messaging | Spring `@Scheduled`, `ThreadPoolTaskExecutor`, `@Async`, `@Transactional`, SSE, Spring Mail |
-| Frontend | React, Vite, JavaScript, HTML, CSS |
-| Documentation and testing | Swagger/OpenAPI, JUnit, Mockito, PostgreSQL integration tests, Postman |
-| Development | Maven, Git, GitHub, Jira |
-
-## Architecture and Database
-
-The application follows a **layered architecture**:
-
-- **Controllers:** receive requests and return REST responses.
-- **Services:** implement trading rules, authentication, scheduled tasks, and portfolio calculations.
-- **Repositories:** interact with PostgreSQL through Spring Data JPA.
-- **Models:** represent persisted data and relationships.
-- **DTOs:** define request and response objects without exposing entities directly.
-- **Security and filters:** enforce JWT authentication, roles, and request limits.
-- **Exception handling:** supplies consistent HTTP error responses.
-
-The database currently contains **12 entities**:
-
-`User`, `Portfolio`, `Asset`, `Holding`, `Transaction`, `Watchlist`, `EmailVerificationToken`, `PasswordResetToken`, `AuditLog`, `InvestmentOrder`, `PriceHistory`, and `PortfolioSnapshot`.
-
-One portfolio belongs to an investor and connects to holdings, completed transactions, investment orders, and historical portfolio snapshots. An asset connects to holdings, transactions, orders, and recorded price history. Order reservations are tracked using reserved cash and reserved share quantities.
-
-## Authentication and User Management
-
-Investors register and verify their email address before using the platform. A verified account receives its virtual starting balance. Spring Security protects API endpoints through JWT authentication and `USER`/`ADMIN` roles. The platform also provides password change/reset, profile editing, profile-picture upload, and account deactivation. User status is checked during authenticated requests so that deactivated users cannot continue using previously issued tokens.
-
-## Investment Management
-
-### Direct BUY and SELL
-
-A direct **BUY** checks that the asset is active and that available cash is sufficient after subtracting cash reserved for pending orders. On success, the application reduces the cash balance, creates or updates the holding, records a completed transaction, writes an audit log, and publishes confirmation events.
-
-A direct **SELL** checks that the investor owns enough *available* shares after subtracting shares reserved for pending SELL orders. On success, holdings decrease, cash increases, a completed transaction is stored, and confirmation events are published. Both workflows run inside database transactions.
-
-### BUY and SELL Limit Orders
-
-Investors may place pending orders with an asset, quantity, type, and target limit price.
-
-- **BUY limit:** the required cash (`quantity × limit price`) is reserved when placing the order. An eligible BUY fills when the current simulated price is **at or below** the limit price. The actual execution cost is deducted and the reserved amount is released.
-- **SELL limit:** the requested shares are reserved when placing the order. An eligible SELL fills when the current simulated price is **at or above** the limit price. Sold shares are deducted and cash proceeds are credited.
-- **Cancellation:** an investor may cancel a `PENDING` order, releasing its reserved cash or shares.
-
-Orders move from `PENDING` to `FILLED` or `CANCELLED`. The background executor periodically evaluates pending orders; each execution rechecks order status under a database lock before changing balances. The frontend displays order history and updates filled orders after execution notifications. The SELL form shows owned, reserved, and available shares and supports a **Max** quantity option.
-
-**Order lifecycle:** `Place order → Reserve funds/shares → PENDING → Price condition met → FILLED`, or `PENDING → Cancel → Release reservation → CANCELLED`.
-
-## Market Simulation and Asset Price History
-
-Because this project does not use a live stock-exchange API, it includes a simulated market engine. Approximately every **10 seconds**, active assets are scheduled for independent price updates. Each update applies a bounded random movement of approximately **±0.5%** to the previous price, protects the asset record with a pessimistic write lock, and saves a `PriceHistory` record.
-
-Investors can view simulated price changes in an asset chart. These are simulated prices and should not be interpreted as live market quotes.
-
-## Portfolio Analytics and Performance History
-
-### Portfolio Metrics
-
-The dashboard calculates current portfolio values from cash, holdings, purchase cost, and simulated prices.
-
-| Metric | Calculation |
-|---|---|
-| Holdings market value | Sum of `holding quantity × current asset price` |
-| Invested cost basis | Sum of `holding quantity × average purchase price` |
-| Total portfolio value | Cash balance + holdings market value |
-| Unrealized P/L | Holdings market value − invested cost basis |
-| Overall gain/loss | Total portfolio value − contributed capital + completed withdrawals |
-| Overall return (%) | Overall gain/loss ÷ contributed capital × 100; zero if contributed capital is zero |
-| Realized P/L for a SELL | Sale proceeds − cost basis of shares sold |
-
-Contributed capital is recorded initial funding plus completed wallet deposits. Completed withdrawals are added back when calculating overall gain/loss. Deposits are funding, not investment profit. Existing portfolios retain their historical initial funding; newly provisioned portfolios start at $0.
-
-### Realized Profit/Loss
-
-For **new completed SELL transactions**, the backend calculates the cost basis from the holding's average purchase price **before** reducing its quantity. The `Transaction` record stores `costBasis` and `realizedGainLoss`. The portfolio-performance API sums recorded realized gains and losses from completed SELL transactions.
-
-**Historical limitation:** SELL transactions made before these columns were introduced may have null cost-basis and realized P/L values. The currently displayed realized P/L total therefore covers recorded transactions only and may not equal the investor's full lifetime realized result until older transactions are backfilled.
-
-### Portfolio Performance History
-
-The `PortfolioSnapshot` entity records an investor's total portfolio value and a timestamp. `PortfolioSnapshotService` calculates cash plus current holdings value for each portfolio; a scheduled job saves snapshots approximately **every five minutes**. Snapshots are stored in PostgreSQL and can be retrieved through the authenticated endpoint **`GET /portfolio/history`**.
-
-The React **Portfolio Performance** chart uses those records to display portfolio value over time, with **1D, 1W, 1M, and ALL** filters. It handles closely spaced snapshots caused by application restarts and does not invent missing historical data.
-
-**Data flow:** `Portfolio + holdings → Calculate total value → Scheduled snapshot → PostgreSQL → GET /portfolio/history → React chart`.
-
-Snapshot history starts when recording was enabled; it cannot show earlier values that were never saved. The chart records periodic observations, not every market tick.
-
-## Investor Dashboard and Administration
-
-### Investor Dashboard
-
-The React dashboard brings together the investor's total portfolio value, overall return, available cash, holdings market value, unrealized and recorded realized P/L, historical portfolio chart, asset allocation, holdings breakdown, and recent transactions. Investors can navigate to assets, holdings, orders, watchlist, transaction history, and profile management.
-
-### Administrator Workspace
-
-Administrators can manage available assets, deactivate user accounts without deleting historical records, and review important audit activities. Administrative routes are restricted by role.
-
-
-
-## Concurrency and Multithreading
-
-Project 3 introduces multithreading to allow the application to process multiple tasks concurrently while maintaining data consistency.
-
-The application uses three separate Spring-managed thread pools.
-
-### 1. Order Execution Thread Pool
-
-The `orderExecutor` thread pool handles automatic execution of pending BUY and SELL limit orders.
-
-The system periodically checks pending orders to determine whether their limit prices have been reached.
-
-When an order becomes eligible for execution, the scheduler submits the order to the thread pool.
-
-Each worker processes an order independently using a database transaction.
-
-The thread pool configuration includes:
-
-- Core pool size: 3
-- Maximum pool size: 5
-- Queue capacity: 10
-
-The order scheduler runs approximately every 10 seconds.
-
-### 2. Market Price Update Thread Pool
-
-The `marketExecutor` thread pool handles simulated market price updates.
-
-The application periodically retrieves active assets and submits their IDs to the thread pool.
-
-Each worker independently updates an asset's price and records the new value in the price history table.
-
-Simulated price movements are limited to approximately ±0.5% per update.
-
-The thread pool configuration includes:
-
-- Core pool size: 3
-- Maximum pool size: 5
-- Queue capacity: 20
-
-The market update scheduler runs approximately every 10 seconds.
-
-### 3. Notification Thread Pool
-
-The `notificationExecutor` thread pool handles asynchronous notifications.
-
-When an investment operation completes successfully, the application publishes a notification event.
-
-A transactional event listener receives the event after the database transaction has committed.
-
-The notification is then delivered asynchronously using Server-Sent Events (SSE). Relevant email listeners also use this executor to deliver welcome and transaction confirmation emails after successful commits.
-The thread pool configuration includes:
-
-- Core pool size: 2
-- Maximum pool size: 4
-- Queue capacity: 20
-
-This prevents notification delivery from unnecessarily delaying the main investment operation.
-
-### Thread Pool Summary
-
-| Thread Pool | Core Threads | Maximum Threads | Queue Capacity | Responsibility |
-|---|---:|---:|---:|---|
-| `orderExecutor` | 3 | 5 | 10 | Execute pending limit orders |
-| `marketExecutor` | 3 | 5 | 20 | Update simulated market prices |
-| `notificationExecutor` | 2 | 4 | 20 | Deliver asynchronous SSE notifications and event-driven emails |
-
-## Race Conditions and Thread Safety
-
-One of the main challenges in Project 3 was ensuring that concurrent operations did not produce incorrect financial results.
-
-The application uses several techniques to prevent race conditions.
-
-### 1. Pessimistic Database Locking
-
-The application uses JPA `PESSIMISTIC_WRITE` locking during operations that modify shared database records.
-
-This protects critical data such as:
-
-- Portfolio cash balances
-- Holdings
-- Investment orders
-- Assets
-
-For example, if two BUY operations attempt to use the same portfolio balance simultaneously, database locking ensures that one operation checks the updated balance after the other operation completes.
-
-This prevents both operations from spending the same available funds.
-
-### 2. Transaction Management
-
-The application uses Spring's `@Transactional` annotation to maintain database consistency.
-
-A financial operation may update several database records, including:
-
-- Portfolio
-- Holding
-- Transaction
-- Investment Order
-- Audit Log
-
-Transaction management ensures that related changes are committed together.
-
-If an operation fails, its database changes are rolled back.
-
-### 3. Thread-Safe Collections
-
-The application uses `ConcurrentHashMap.newKeySet()` to track tasks currently queued or being processed.
-
-Two separate sets track:
-
-- Investment order IDs
-- Asset IDs
-
-This prevents the scheduler from submitting the same order or asset multiple times while an earlier task is still pending.
-
-Task IDs are removed after processing completes or fails.
-
-### 4. Status Validation
-
-Before executing an order, the worker checks that its status is still `PENDING`.
-
-Before updating an asset price, the worker checks that the asset is still `ACTIVE`.
-
-These checks are performed after acquiring the relevant database locks.
-
-This prevents duplicate order execution and avoids updating assets that have already been deactivated.
-
-### 5. Concurrent REST Request Demonstration
-
-A live demonstration uses two browser tabs signed in as the same test investor. Both tabs submit a POST /portfolio/buy request for two shares of the same asset while competing for a limited virtual cash balance.
-
-For the tested example, the investor started with $1,000 and both BUY requests were submitted close together. One request succeeded and the other was rejected with "Insufficient available funds". The final balance remained non-negative, demonstrating that the portfolio lock and balance validation prevent overspending. Either request can win the lock; success is not tied to a particular browser tab.
-
-For the classroom demonstration, AssetService.buyAsset() contains a temporary Thread.sleep(3000) after the portfolio lock is acquired to make overlapping requests easier to observe. This artificial delay is for the presentation only and must be removed afterward; it is not normal production behavior.
-
-
-### 6. Transactional Notifications
-
-The application uses:
-
-`@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`
-
-This ensures successful investment notifications are only sent after the corresponding database transaction commits.
-
-The application also uses:
-
-`@Async("notificationExecutor")`
-
-This allows notifications to be processed asynchronously.
-
-If a financial transaction is rolled back, its after-commit notification is not sent.
-
-### 7. Latest Execution Price Protection
-
-Direct BUY/SELL operations lock the asset before reading the execution price. Limit-order execution performs an initial eligibility check, then acquires portfolio and asset locks and **rechecks the latest locked price** before filling. A BUY limit must still be at or below its limit and a SELL limit must still be at or above its limit. The checked price is used for calculations, holdings, and transaction records. This reduces inconsistent fills when the simulated market updates concurrently.
-
-
-## API Rate Limiting
-
-The application uses Bucket4j to protect selected endpoints from excessive requests.
-
-### Authentication Rate Limiting
-
-Login and password-reset requests are limited to three attempts per one-minute refill interval.
-
-These limits are tracked separately for each email address.
-
-### Project 3 — Investment Rate Limiting
-
-Project 3 introduces a centralized rate-limiting filter for investment operations.
-
-Each authenticated user receives an independent rate-limit bucket for each protected endpoint.
-
-The configured limit is:
-
-**5 requests per minute per user per endpoint.**
-
-| HTTP Method | Endpoint | Rate Limit |
-|---|---|---|
-| POST | `/portfolio/buy` | 5 requests/minute |
-| POST | `/portfolio/sell` | 5 requests/minute |
-| POST | `/orders` | 5 requests/minute |
-| PATCH | `/orders/{id}/cancel` | 5 requests/minute |
-
-If the request limit is exceeded, the application returns:
-
-**HTTP 429 — Too Many Requests**
-
-The cancellation endpoint uses a normalized key so requests for different order IDs share the same cancellation limit.
-
-GET requests and SSE subscriptions are not affected by this additional investment rate limiter.
-
-Rate-limit buckets are currently stored in application memory, meaning they are not shared between multiple server instances.
-
-Bucket4j uses interval-based token refilling rather than an exact sliding-window request counter.
-
-## Real-Time and Email Notifications
-
-### Server-Sent Events (SSE)
-
-The application provides real-time investment notifications using Server-Sent Events (SSE).
-
-Notifications are generated for important investment actions, including:
-
-- Successful direct BUY operations
-- Successful direct SELL operations
-- Executed BUY limit orders
-- Executed SELL limit orders
-- Cancelled limit orders
-
-The notification system uses application events and asynchronous processing.
-
-Notifications are delivered after successful transaction commits.
-
-Notification delivery is best-effort. Messages may not be delivered when a user is disconnected or the notification thread pool is saturated.
-
-Rejected notification tasks are logged, but notifications are not currently stored for automatic retry.
-
-Financial transactions remain committed even if a notification cannot be delivered.
-
-### HTML Email Notifications
-
-The application uses Spring Mail to send HTML emails for account verification, password resets, and successful account activation. After a successful direct BUY or SELL transaction, or an automatically executed BUY or SELL limit order, it sends an HTML confirmation with the transaction type, asset symbol, quantity, and total amount.
-
-Welcome and transaction-confirmation emails use Spring application events, @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT), and @Async("notificationExecutor"). These messages are attempted only after the related database transaction commits, and email-delivery errors are logged rather than reversing a completed investment. Email delivery is best-effort; an automatic retry mechanism is not implemented.
-
-## Audit Logging
-
-The application maintains audit logs for important system operations.
-
-Each audit log records:
-
-- User email
-- Action performed
-- Action details
-- Creation timestamp
-
-Project 3 extends the audit actions with:
-
-- `PLACE_LIMIT_ORDER`
-- `CANCEL_LIMIT_ORDER`
-- `EXECUTE_LIMIT_ORDER`
-
-Audit logs for these operations are stored within the corresponding database transactions.
-
-If an operation fails and its transaction is rolled back, the related success audit log is also rolled back.
-
-## Testing and Verification
-
-The backend uses **JUnit and Mockito**, including PostgreSQL integration tests, to check authentication, authorization, investment operations, order execution, database locking, simulated market updates, validation, and notifications. The project also includes a manual two-browser-tab concurrent BUY demonstration using a limited cash balance.
-
-After the latest execution-price changes and related test fixes, the full Maven test run was reported as **BUILD SUCCESS**. The frontend portfolio-history implementation was reported with **35 passing tests**, plus passing build and lint checks. These are results from the development process; rerun both suites after the latest snapshot/backend and dashboard-layout changes to establish a current final total.
-
-```powershell
-# Backend (project root)
-.\mvnw.cmd clean test
-
-# Frontend
-cd frontend
-npm run build
-npm run lint
-npm test
+| Backend | Java 17, Spring Boot, Spring Web, Spring Security, Spring Data JPA / Hibernate, Maven |
+| Services | Authentication Service, Investment Service, Notification Service |
+| Frontend | React, Vite, JavaScript, CSS; production Nginx server |
+| Database | PostgreSQL 18, persistent Docker volume |
+| Messaging | Apache Kafka 4.1, producers/consumers, asynchronous service events |
+| Cache | Caffeine for investment portfolio/snapshot-related reads |
+| Payments and AI | Stripe **Sandbox**, Gemini API |
+| Tests | JUnit, Mockito, service/integration tests, Cucumber BDD/REST-assured-style API scenarios, frontend tests, ESLint/build |
+| Containers | Docker, Docker Compose, Docker Hub |
+| CI/CD | Jenkins, Maven, Node.js, Docker Buildx, GitHub SCM polling, secure Jenkins credentials |
+| Hosting | AWS EC2 (Amazon Linux 2023, `us-east-1`), EBS, VPC/security group, Nginx, Let's Encrypt, DuckDNS |
+| Collaboration/docs | Git/GitHub, Jira, Swagger/OpenAPI, ERD |
+
+## Microservices Architecture
+
+Project 4 separates three business capabilities into independently deployable Spring Boot applications. The frontend reaches them through a single Nginx entry point; the services use internal Docker DNS names and Kafka where asynchronous communication is appropriate.
+
+```mermaid
+flowchart TB
+    U[Investor / Administrator] -->|HTTPS 443| N[Nginx + React Frontend\nAWS EC2]
+    N -->|REST /api/auth/...| A[Authentication Service\n8084]
+    N -->|REST /api/investment/...| I[Investment Service\n8085]
+    N -->|REST /api/notification/...| M[Notification Service\n8083]
+    I -->|Internal REST| A
+    A -->|Events| K[(Apache Kafka)]
+    I -->|Events| K
+    K -->|Consume| M
+    A --> DB[(PostgreSQL)]
+    I --> DB
+    M --> DB
+    I -->|Test checkout| S[Stripe Sandbox]
+    M -->|Email| E[SMTP]
+    I -->|AI Help| G[Gemini API]
 ```
 
-Use the frontend test command configured in `frontend/package.json` if it differs from `npm test`.
+*Architecture diagram describes logical responsibilities and connectivity; exact REST paths/events are controlled by the implementation. The deployment runs these services within one EC2 instance, not across separate AWS instances.*
 
-## Development Approach and Planning
+### Before and after
 
-Development began with database design, user stories, authentication, and direct trading, followed by holdings, watchlists, admin tools, API documentation, and automated tests. Project 3 added limit orders, scheduled concurrent market updates, asynchronous notifications, stronger concurrency controls, financial performance analytics, and portfolio snapshots. Git/GitHub branches and pull requests were used to organize the work.
+- **Before (Projects 2–3):** One Spring Boot backend containing accounts, investment logic and notifications, accompanied by a React frontend and PostgreSQL.
+- **After (Project 4):** Three separate Spring Boot services with their own build files and Docker images; Kafka handles asynchronous events; Nginx fronts the containerized React/backend APIs; Jenkins publishes images for EC2 deployment.
 
-- [User Stories and Project Planning (Jira)](https://investmentportfolio.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog)
+## Service Boundaries and Data Ownership
 
-## Entity Relationship Diagram
+| Service | Responsibility / owned behavior | Main communication | Container port |
+|---|---|---|---|
+| **Authentication** (`auth-service/`) | Register/authenticate users, email verification tokens, JWTs, roles, profile/user administration, service authentication | REST API; produces relevant events | `8084` |
+| **Investment** (`investment-service/`) | Assets, prices, trading, holdings, wallets, portfolio analytics/snapshots, orders, watchlists and alerts, Stripe Sandbox, AI Help | REST API; internal Auth API; Kafka event publishing | `8085` |
+| **Notification** (`notification-service/`) | Notification consumers, SMTP verification/reset/transaction emails, notification delivery | Kafka consumption; notification endpoints/SSE as implemented | `8083` |
 
-The ERD documents the **12 entities**, attributes, and relationships, including `portfolio_snapshots`, the reserved-cash/share fields, and the `cost_basis` and `realized_gain_loss` transaction columns.
+Each service has its own Spring Boot runtime, dependencies, configuration and Dockerfile. Services communicate through explicit APIs or messaging rather than by importing each other's internal Java service classes.
 
-[View the ERD in dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646)
+**Current data-ownership limitation:** The deployed services share **one PostgreSQL database** (`investment_portfolio`) and rely on domain-level ownership of tables. This is simpler for this project, but it is not database-per-service isolation; cross-service schema coupling remains a tradeoff. A separate schema/database per service is a future improvement, not a feature claimed to be implemented.
 
-<!-- Replace this placeholder with the GitHub-uploaded image URL of your finalized 12-entity ERD. -->
-<!-- Example: ![Entity Relationship Diagram](YOUR_NEW_ERD_IMAGE_URL) -->
+## Apache Kafka and Event-Driven Communication
 
+Kafka decouples investment/authentication activities from notification delivery. After business operations occur, a producer publishes an event; the Notification Service consumes it and handles follow-up work without requiring the originating HTTP request to send the email synchronously.
 
+```mermaid
+sequenceDiagram
+    participant Client as Investor
+    participant Investment as Investment Service
+    participant DB as PostgreSQL
+    participant Kafka as Kafka Broker
+    participant Notify as Notification Service
+    Client->>Investment: BUY / SELL / order action
+    Investment->>DB: Transactional update
+    DB-->>Investment: Commit
+    Investment->>Kafka: Publish domain event
+    Kafka-->>Notify: Deliver event to consumer
+    Notify->>Notify: Prepare notification / email
+```
 
-## API Documentation
+**Relevant events:** investment/trading and account-related events that drive notifications. For a submission-grade event contract, use the **actual topic constant, producer/consumer class, message fields, and retry/acknowledgment settings from the checked-in Java code** rather than inventing a topic name or JSON payload here.
 
-The REST API is documented using Swagger/OpenAPI. Swagger UI provides an interactive interface for viewing and testing the available API endpoints.
+| Event documentation item | Where to verify |
+|---|---|
+| Kafka topic name(s) | Producer/consumer `@KafkaListener` and topic configuration in the service source |
+| Producer | Publishing code in Authentication or Investment Service |
+| Consumer | Notification Service Kafka listener |
+| Event fields | Actual event DTO/message class |
+| Delivery/retry behavior | Listener acknowledgment, failure handling and any outbox logic in source |
 
-After starting the application, Swagger UI can be accessed at:
+**Reliability:** Investment records are committed in PostgreSQL independently of downstream email delivery. Message duplication, consumer outages, backpressure, and any retry/outbox assumptions should be evaluated against the actual listener implementation. A distributed event system should not be described as exactly-once simply because Kafka is present. An always-available durable notification inbox is not claimed.
 
-http://localhost:8081/swagger-ui/index.html
+## Database and ERD
 
-The OpenAPI specification is available at:
+The AWS environment uses PostgreSQL 18.6 with a persistent Docker volume; its data is separate from the original local Docker database. The investor's data was migrated with a verified backup and foreign-key checks while preserving the AWS administrator.
 
-http://localhost:8081/v3/api-docs
+The current PostgreSQL schema includes **16 tables**, reflecting the expansion beyond the 12-entity Project 3 ERD:
 
-For protected endpoints, click **Authorize** in Swagger UI and enter the JWT token using the Bearer authentication scheme.
+`assets`, `audit_logs`, `auth_outbox`, `email_verification_tokens`, `holdings`, `investment_orders`, `investment_outbox`, `password_reset_tokens`, `portfolio_snapshots`, `portfolios`, `price_alert`, `price_history`, `transactions`, `users`, `wallet_operations`, `watchlist`.
 
-## Installation and Configuration
+Core relations:
 
-Follow the steps below to set up and run the Virtual Investment Portfolio System locally.
+- `users` → `portfolios` (one portfolio per user in the implemented schema).
+- `portfolios` → `holdings`, `transactions`, `investment_orders`, `wallet_operations`, `portfolio_snapshots`, `price_alert`.
+- `assets` → holdings, price history, investment orders, watchlists and price alerts.
+- `users` → watchlist, verification and password-reset tokens.
 
-### 1. Clone the Repository
+**Existing ERD (Project 3 baseline):** [View in dbdiagram.io](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646).  
+**Project 4 deliverable:** Update/export the diagram to include the additional tables and current relationships; link the finalized diagram image here before submission.
 
-Clone the project from GitHub:
+The repository contains `investment_schema.sql` and `assets_data.sql` for schema/seed reference. Never import historical schema scripts indiscriminately into a database that already has tables and user data.
+
+## Caching, Concurrency, and Reliability
+
+### Caching
+
+The Investment Service uses **Caffeine** caching for portfolio/snapshot-related reads to reduce repeated database work. Cache behavior is local to the service instance, not a distributed cache. The source configuration is the authority for cache keys, eviction and expiration.
+
+### Continued Project 3 concurrency features
+
+- Scheduled simulated market price updates approximately every 10 seconds.
+- Pending order execution using managed Spring thread pools.
+- Database transactions and pessimistic locking for balances, holdings, orders and current asset prices.
+- Reserved cash/shares, locked-price rechecks and order-status validation to reduce overspending, double execution and invalid fills.
+- Async notifications and SSE where implemented, with bounded request rate limiting.
+- Portfolio history recorded from periodic snapshots (not fabricated historical values).
+
+### Runtime reliability
+
+- Docker health checks gate service startup.
+- Named volumes persist PostgreSQL and Kafka data across container recreation.
+- PostgreSQL/Kafka are **not** exposed as public EC2 ports.
+- AWS deployment updates backend services individually and checks readiness; data volumes are retained.
+- `t3.small` has **2 GiB RAM plus a 2 GiB swap file**, so resource headroom is limited; swap is not a substitute for RAM.
+
+## Docker and Local Setup
+
+### Repository layout
+
+```text
+Virtual-Investment-Portfolio/
+├── auth-service/                # Spring Boot authentication
+├── investment-service/          # Spring Boot investment / trading
+├── notification-service/        # Spring Boot notifications
+├── frontend/                    # React + Vite
+├── docker-compose.yml           # Local PostgreSQL, Kafka, service containers
+├── Jenkinsfile                  # CI/CD pipeline
+├── ci/jenkins/                  # Jenkins controller + EC2 deployment scripts
+├── deploy/aws/                  # AWS Compose, Nginx, TLS, runbook
+├── investment_schema.sql
+├── assets_data.sql
+└── README.md
+```
+
+### Prerequisites
+
+- Git, Docker Desktop (with Docker Compose), a working `.env` configuration.
+- Java 17, Maven and Node.js if running services and frontend outside Docker.
+- Working Docker images for local Compose, or build them with the service Dockerfiles first.
+
+### Local Docker deployment
 
 ```bash
 git clone https://github.com/Shaikha-Projects/Virtual-Investment-Portfolio.git
-```
-
-Navigate into the project directory:
-
-```bash
 cd Virtual-Investment-Portfolio
 ```
 
-### 2. Prerequisites
+Create a **local `.env`** containing the variables required by the local Compose file and service properties; do **not** commit it. At minimum, the local Compose references `DB_PASSWORD` and `env_file: .env` for application settings. Common additional settings include JWT, service key, mail, Stripe Sandbox and Gemini keys.
 
-Make sure the following are installed:
-
-- Java 17
-- PostgreSQL
-- Git
-- Maven, or use the Maven Wrapper included with the project
-
-### 3. Configure PostgreSQL
-
-Create a PostgreSQL database named:
-
-```text
-investment_portfolio
-```
-
-Make sure PostgreSQL is running and configure the application's development properties with the correct database URL, username, and password.
-
-Example database URL:
-
-```text
-jdbc:postgresql://localhost:5432/investment_portfolio
-```
-
-### 4. Configure Environment Variables
-
-The application uses environment variables to keep sensitive information outside the source code.
-
-Configure the required environment variables before starting the application.
-
-```text
-MAIL_USERNAME=your_email_address
-MAIL_PASSWORD=your_email_app_password
-
-ADMIN_EMAIL=your_admin_email
-ADMIN_PASSWORD=your_admin_password
-```
-
-Also configure any database credentials and JWT secret required by your local application configuration.
-
-Do not commit real passwords, email credentials, database credentials, or JWT secrets to GitHub.
-
-### 5. Activate the Development Profile
-
-Run the application using the `dev` Spring profile.
-
-In IntelliJ IDEA, the active profile can be configured in the application's Run Configuration.
-
-Alternatively, the profile can be supplied when starting the application:
+The original local `docker-compose.yml` refers to locally built images, so create those images before starting if not already present. Example:
 
 ```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+docker build -t investment-auth:local ./auth-service
+docker build -t investment-service:local ./investment-service
+docker build -t investment-notification:local ./notification-service
+docker compose up -d
+docker compose ps
 ```
 
-On Windows PowerShell:
+The exact Dockerfiles/build contexts determine whether packaged JARs must be prepared first. The CI pipeline handles Maven packaging and builds versioned release images automatically.
 
-```powershell
-.\mvnw spring-boot:run "-Dspring-boot.run.profiles=dev"
-```
-
-### 6. Seed the Database
-
-The application includes development seed data for investment assets.
-
-When the application starts using the development configuration, the seed process populates the database with the initial asset data required to test the investment features.
-
-An administrator account is also initialized using the configured environment variables:
-
-```text
-ADMIN_EMAIL
-ADMIN_PASSWORD
-```
-
-### 7. Start the Application
-
-The application can be started from IntelliJ IDEA by running the main Spring Boot application class.
-
-It can also be started from the terminal.
-
-On macOS/Linux:
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-On Windows PowerShell:
-
-```powershell
-.\mvnw spring-boot:run "-Dspring-boot.run.profiles=dev"
-```
-
-Once the application has started successfully, the embedded Tomcat server runs the API locally on port `8081`.
-
-### 8. Access the API
-
-The base URL of the locally running application is:
-
-```text
-http://localhost:8081
-```
-
-API endpoints can be tested using Postman or Swagger UI.
-
-Protected endpoints require a valid JWT obtained after successful authentication.
-
-### 9. Access Swagger / OpenAPI
-
-After starting the application, open Swagger UI at:
-
-```text
-http://localhost:8081/swagger-ui/index.html
-```
-
-The OpenAPI JSON specification is available at:
-
-```text
-http://localhost:8081/v3/api-docs
-```
-
-For protected endpoints, use the **Authorize** button in Swagger UI and provide a valid JWT using the Bearer authentication scheme.
-
-### 10. Start the Frontend
-
-The frontend is built using React and Vite and provides the user interface for interacting with the Virtual Investment Portfolio System.
-
-Navigate to the frontend directory:
+Local backend ports: Auth `8084`, Investment `8085`, Notification `8083`; PostgreSQL host port `5433` and Kafka host port `9092` are for local development only. Start the React development server separately:
 
 ```bash
 cd frontend
-```
-
-Install the required dependencies:
-
-```bash
-npm install
-```
-
-Start the frontend development server:
-
-```bash
+npm ci
 npm run dev
 ```
 
-The frontend can then be accessed at:
+Open `http://localhost:5173` for development. **Never use `docker compose down -v` casually:** it destroys the named database/broker volumes.
 
-```text
-http://localhost:5173
+## CI/CD with Jenkins
+
+The local Jenkins controller is itself containerized (`jenkins-local`) with the persistent `jenkinsvol1` volume. Jenkins polls GitHub SCM about every five minutes because the localhost controller cannot receive public GitHub webhooks.
+
+```mermaid
+flowchart LR
+    G[GitHub push] --> P[Jenkins SCM polling]
+    P --> B[Java builds + tests\nCucumber + frontend tests]
+    B --> Q[Frontend lint / build]
+    Q --> D[Docker image build]
+    D --> R[Docker Hub: versioned tags + latest]
+    R --> A{Manual AWS deploy approval}
+    A -->|Approved| EC2[EC2 deployment script\nHealth verification]
+    A -->|Declined/aborted| END[No AWS update]
 ```
 
-Make sure the Spring Boot backend is also running on port `8081` so the frontend can communicate with the REST API.
+### Pipeline stages
 
-## Challenges and Limitations
+1. Checkout `main` from GitHub.
+2. Run Maven `clean verify` for Authentication, Investment (including Cucumber), and Notification services.
+3. Run frontend `npm ci`, automated tests, ESLint, and production Vite build.
+4. Build three Docker images and publish them to Docker Hub **only after CI passes**.
+5. Publish both immutable `build-N-<commit>` tags and `latest`; archive a delivery manifest with image digests.
+6. The newly added AWS CD stage uses verified SSH credentials, a deployment approval gate, versioned image tags and health checks. **As of the README's update, its first live end-to-end deployment is pending completion.**
 
-### Major Challenges
+### Docker Hub images
 
-- **Authentication and authorization:** ensuring role-protected endpoints and rejecting previously issued JWTs for deactivated accounts.
-- **Financial consistency:** ensuring purchases, sales, reservations, holdings, and transaction records remain consistent under concurrent requests.
-- **Background processing:** separating market updates, automatic order execution, and notifications into managed executors while controlling duplicate submissions.
-- **Data and UI growth:** adding realized P/L and recorded portfolio history without replacing existing dashboard functionality.
+- [`shaikhahsn/investment-auth`](https://hub.docker.com/r/shaikhahsn/investment-auth)
+- [`shaikhahsn/investment-service`](https://hub.docker.com/r/shaikhahsn/investment-service)
+- [`shaikhahsn/investment-notification`](https://hub.docker.com/r/shaikhahsn/investment-notification)
 
-### Known Limitations
+**Verified evidence:** Jenkins Build **#11** completed the full CI and three-image publish with six remote-tag verifications. Build **#13** passed and published updated Notification Service code. Build **#14** passed CI and published images but was aborted before live deployment. Build **#15** was automatically triggered by commit `110f541`; its AWS deployment outcome remains to be recorded.
 
-- The market is simulated and does not use live exchange prices.
-- Older SELL transactions may not have recorded realized P/L and are not included in the recorded total until handled separately.
-- Portfolio snapshots exist only from the time historical recording began; restarting the application can create snapshots close together.
-- SSE notifications are best effort and can be missed while disconnected; they are not stored for durable replay.
-- Rate-limit buckets are stored in memory and are not shared across multiple application instances.
-- The temporary three-second delay in `AssetService.buyAsset()` is **demo-only** to make concurrent requests observable; remove it after the presentation.
-- This is a local educational simulation, not a production brokerage.
+### Jenkins credentials and safety
 
-## Future Improvements
+| Jenkins credential ID | Usage |
+|---|---|
+| `dockerhub-credentials` | Docker Hub username / access token for image pushes |
+| `aws-ec2-ssh` | EC2 deploy access via `ec2-user` private key |
+| `aws-ec2-known-hosts` | Verified SSH host-key entry |
 
-- Real market data integration instead of simulated prices.
-- Additional financial instruments such as ETFs, bonds, and cryptocurrencies.
-- Price-threshold alerts connected to the market simulator and SSE.
-- Accurate historical realized P/L backfill for old SELL transactions.
-- More advanced order types, order expiry, and improved order-status history.
-- Persistent notification inbox and delivery retries.
-- Database migrations, containerization, CI/CD, monitoring, and deployment.
-- Shared/distributed rate limiting and larger-scale performance tests.
-- Longer-term portfolio analytics and more detailed administrative reporting.
+All secrets stay in Jenkins credentials, never in `Jenkinsfile` or Git. The local Jenkins controller has Docker socket access, which grants powerful Docker-host privileges; allow only trusted code and do not expose Jenkins publicly. The AWS deployment script must preserve persistent data and allow rollback to a previously published version.
+
+## AWS Architecture and Deployment
+
+### Actual AWS environment
+
+| Component | Configuration |
+|---|---|
+| Cloud | AWS EC2, **US East (N. Virginia)** `us-east-1` |
+| Host OS | Amazon Linux 2023 |
+| Instance | `t3.small` (2 vCPU, 2 GiB RAM), 2 GiB swap |
+| Storage | 30 GiB `gp3` EBS root volume + named Docker volumes |
+| Web entry | Nginx/React container serving ports 80 and 443 |
+| TLS | Let's Encrypt certificate for DuckDNS hostname |
+| Database | PostgreSQL 18.6 container, internal-only |
+| Broker | Kafka 4.1 container, internal-only |
+| Services | Auth `8084`, Investment `8085`, Notification `8083`, internally routed |
+| Public site | **https://virtualinvestmentportfolio.duckdns.org** |
+
+Only the web gateway is exposed publicly. SSH access is restricted using the EC2 security group and authorized SSH keys. The EC2 public IP/DuckDNS mapping may change when an instance is stopped and restarted unless a stable addressing strategy is used.
+
+### Deployment configuration
+
+- `deploy/aws/compose.yml` — persistent services, resource controls, health checks and HTTP gateway.
+- `deploy/aws/tls.yml` — HTTPS overlay for Nginx.
+- `deploy/aws/frontend.Dockerfile` — static production frontend image.
+- `deploy/aws/nginx/` — same-origin API proxy rules, SSE forwarding, wallet route fallback and TLS gateway templates.
+- `deploy/aws/.env.example` — required variable names, **not** real credentials.
+- [`deploy/aws/README.md`](deploy/aws/README.md) — **authoritative step-by-step deployment, certificate and rollback runbook**.
+
+### Typical EC2 deployment sequence
+
+The live server is already provisioned; these are the reproducible operational steps for an authorized EC2 operator, not an instruction to reset a working database:
+
+```bash
+cd /home/ec2-user/Virtual-Investment-Portfolio
+git pull --ff-only
+
+# deploy/aws/.env must already exist securely on EC2.
+docker compose --env-file deploy/aws/.env \
+  -f deploy/aws/compose.yml -f deploy/aws/tls.yml config --quiet
+
+docker compose --env-file deploy/aws/.env \
+  -f deploy/aws/compose.yml -f deploy/aws/tls.yml pull
+
+docker compose --env-file deploy/aws/.env \
+  -f deploy/aws/compose.yml -f deploy/aws/tls.yml up -d
+
+docker compose --env-file deploy/aws/.env \
+  -f deploy/aws/compose.yml -f deploy/aws/tls.yml ps
+```
+
+The frontend is built locally on EC2 for initial provisioning if `investment-frontend:aws` does not exist (see `deploy/aws/README.md`). For new releases, the prepared CD script reuses unchanged frontend assets or ships the Jenkins-built frontend artifact when it changes. PostgreSQL and Kafka volumes must **not** be removed during updates.
+
+### HTTPS
+
+A DuckDNS hostname points to the EC2 public address. A Let's Encrypt certificate was issued successfully; Nginx serves the site over HTTPS. **Certificate expiry: February 15, 2027.** Renewal is **not yet automated** and must be arranged before expiration (the AWS runbook documents the manual procedure). Do not use HTTP to transmit passwords or real account data.
+
+### AWS verification already completed
+
+- Six Docker containers reported healthy: PostgreSQL, Kafka, Auth, Investment, Notification and frontend.
+- Public HTTPS frontend opened successfully.
+- Existing Admin and Investor accounts authenticated on AWS.
+- Investor account data was migrated safely: 1 portfolio, 3 holdings, 5 transactions, 1 order, 1 wallet operation, 1 watchlist entry, 1 alert, 172 snapshots, 6 audit records and 15,193 price-history records; AWS admin remained intact.
+- Stripe Sandbox **Deposit navigation** opened after correcting the Investment Service return URLs to the HTTPS origin. A completed sandbox payment was **not** independently confirmed.
+- Notification Service deployment was updated to generate public HTTPS verification/reset links; actual SMTP arrival/verification still requires manual confirmation.
+
+## Configuration and Security
+
+Real credentials are stored in ignored files on the relevant environment, not in GitHub:
+
+| Variable | Purpose |
+|---|---|
+| `PUBLIC_HOST` | Public hostname, no protocol |
+| `PUBLIC_ORIGIN` | HTTPS origin, e.g. `https://virtualinvestmentportfolio.duckdns.org` |
+| `IMAGE_TAG` | Immutable Docker release tag selected for deployment |
+| `DB_PASSWORD` | PostgreSQL password |
+| `JWT_SECRET` | Shared JWT signing secret configured consistently across relevant services |
+| `INTERNAL_SERVICE_KEY` | Internal service authentication key |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP identity / app password |
+| `STRIPE_SECRET_KEY` | **Sandbox** Stripe secret key |
+| `GEMINI_API_KEY` | Gemini Developer API key |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Optional initial administrator bootstrap (remove the bootstrap password after setup when practical) |
+
+Do not commit `.env`, `.pem` files, TLS private keys, database dumps, profile uploads, Jenkins credentials or API tokens. Backend containers listen on the private Docker network; Nginx is the public gateway. Email verification/reset links use the deployment's `PUBLIC_ORIGIN`. External integrations should be tested with sandbox/test accounts.
+
+## Testing and Evidence
+
+| Evidence | Verified result |
+|---|---|
+| Jenkins Build #11 | Full CI passed; three service images published with versioned and `latest` tags; remote tags/digests verified |
+| Jenkins Build #13 | Notification update, **44 Notification tests** passed, image published |
+| Jenkins Build #14 | **602 tests passed**, nine opt-in tests skipped; frontend lint/build passed; images published; deployment **not** approved |
+| Cucumber | All **five** API scenarios passed in the reported CI runs |
+| Frontend | **85** tests reported passing in the prior successful CI run; lint and production build passed |
+| AWS runtime | Six containers healthy; HTTPS frontend and Admin/Investor login verified |
+| Investor migration | Rehearsal and import checks passed; AWS backup created before migration; existing Admin preserved |
+| Docker Compose | Production Compose validated; gateway/Nginx checks validated during deployment preparation |
+
+Run relevant tests locally:
+
+```bash
+cd auth-service && mvn -B clean verify
+cd ../investment-service && mvn -B clean verify
+cd ../notification-service && mvn -B clean verify
+cd ../frontend && npm ci && npm test && npm run lint && npm run build
+```
+
+Project-level Cucumber scenarios live in the Investment Service and run as part of its Maven verification. The opt-in database/external-service tests skipped in CI should not be counted as passed tests. Always report build number, commit, and run status when presenting test evidence.
+
+**Suggested submission screenshots:** successful Jenkins pipeline/stages, Docker Hub versioned image tags, Compose running containers, EC2 instance/security-group overview (hide account identifiers where possible), HTTPS login, investor dashboard, Kafka event demonstration, and Swagger/OpenAPI endpoints. Screenshots are evidence, not substitutes for configuration/source files.
+
+## API Documentation
+
+The project uses Swagger/OpenAPI for REST API discovery. Because Project 4 has **three separate Spring Boot services**, check each service's Swagger/OpenAPI configuration rather than assuming the Project 3 monolith's `localhost:8081` documentation URL still applies.
+
+Local service ports:
+
+- Authentication: `http://localhost:8084`
+- Investment: `http://localhost:8085`
+- Notification: `http://localhost:8083`
+
+Typical Springdoc paths, **if enabled in each service**, are `/swagger-ui/index.html` and `/v3/api-docs`. For protected endpoints, supply the appropriate Bearer token. Swagger endpoints may intentionally be restricted behind the public Nginx gateway; don't expose documentation or internal endpoints publicly just for a demo.
+
+Project 4 also maintains a separate asset API artifact, `asset-api.html`/JSON, where included as a Jenkins artifact. Document Kafka topics and payloads alongside API contracts (not as REST routes).
+
+## Challenges, Limitations, and Future Work
+
+### Challenges addressed
+
+1. **Microservice separation:** keeping authentication, investment operations and notification workflows coherent while separating applications and deployments.
+2. **Kafka and container networking:** using Docker service hostnames and fixing Kafka data-volume ownership when AWS Kafka initially failed with `AccessDeniedException`.
+3. **Testing in CI:** replacing test assumptions about local untracked files with created/cleaned-up test fixtures.
+4. **Jenkins Docker access:** building inside a containerized controller, preserving `jenkinsvol1`, securely publishing images and handling a transient Docker Hub broken-pipe upload with bounded retries.
+5. **AWS resources:** deploying six containers within `t3.small` memory limits, enabling swap, monitoring health, and preserving volumes.
+6. **Public configuration:** establishing DNS/Let's Encrypt HTTPS, correcting notification localhost links and Stripe Sandbox return URLs.
+7. **Data migration:** transferring a single investor with related records while preserving the AWS administrator and database relationships.
+
+### Known limitations / unfinished verification
+
+- **Jenkins → AWS automatic deployment:** first approval-gated live execution still needs a successful verified result (Build #15 or later); do not claim this stage is complete prematurely.
+- **HTTPS renewal:** Let's Encrypt renewal has not been automated; cert expires **2027-02-15**.
+- **Email:** Public verification/reset URLs are configured; real email delivery and full registration/reset flows should be confirmed manually.
+- **Stripe:** Sandbox Deposit page navigation works; full checkout callback and credited wallet balance still require a test payment verification.
+- **Capacity:** Single `t3.small` host, 2 GiB physical RAM; not high-availability production hosting. Swap can introduce severe performance penalties.
+- **Storage/ownership:** Services share one PostgreSQL database; not independently scalable data stores.
+- **Kafka delivery:** End-to-end outage/duplicate replay behavior and long-term retries should be documented from actual code and tested if required.
+- **Historical data:** Portfolio snapshots begin when recording was enabled; some older SELL transactions lack fully recorded realized P/L.
+- **Profile uploads:** One migrated investor's referenced profile PNG was missing and must be replaced if the image is needed.
+- **Simulated finance:** No live exchange feed or real-money trading.
+
+### Future improvements
+
+- Complete and verify automated AWS deployment and safe rollback; optionally add pipeline security scanning.
+- Automate HTTPS renewals and monitor service uptime, resource use and certificate expiry.
+- Move database and broker to managed/independent infrastructure for stronger availability; implement stricter data isolation between services.
+- Expand Kafka observability, retry/dead-letter handling and idempotent consumers as supported by business requirements.
+- Improve durable notifications and distributed caching/rate limiting.
+- Add continuous integration tests against a disposable production-like stack.
+
+## Planning and Deliverables
+
+Project 4 followed the project rubric's progression: retain the application → separate services → containerize with Compose → add Kafka and caching → build CI/CD → publish Docker images → deploy to AWS → document and demonstrate.
+
+- [GitHub source repository](https://github.com/Shaikha-Projects/Virtual-Investment-Portfolio)
+- [Jira board / user stories](https://investmentportfolio.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog)
+- Architecture diagram: Mermaid above; export a finalized image if required by the submission tracker.
+- ERD: existing [dbdiagram](https://dbdiagram.io/d/Investment-Portfolio-6aba48670f25a52d0128e646) needs Project 4 refresh for all 16 tables.
+- Docker artifacts: service Dockerfiles, local `docker-compose.yml`, `deploy/aws/compose.yml`, `deploy/aws/tls.yml`.
+- CI/CD configuration: `Jenkinsfile`, `ci/jenkins/`.
+- AWS deployment instructions: `deploy/aws/README.md`.
+- API documentation: service Swagger/OpenAPI and generated API artifacts where enabled.
+- Presentation: approximately **15 minutes**, including before/after architecture, Kafka event flow, Docker, Jenkins, AWS demonstration, challenges, learning and Q&A.
 
 ## Credits and Resources
 
-Developed as part of the **General Assembly Java Developer Bootcamp**. Official documentation and reference materials used during development:
+Developed for the **General Assembly Java Developer Bootcamp**, extending the same application through Projects 2–4. The instructor's guidance, documentation, and automated coding assistance were used during development; all AI-assisted code/configuration should be reviewed and understood before submission.
 
-- [Spring Boot](https://docs.spring.io/spring-boot/)
-- [Spring Security](https://docs.spring.io/spring-security/reference/)
-- [Spring Data JPA](https://docs.spring.io/spring-data/jpa/reference/)
-- [React](https://react.dev/)
-- [Vite](https://vite.dev/)
-- [PostgreSQL](https://www.postgresql.org/docs/)
-- [Swagger / OpenAPI](https://swagger.io/docs/)
-- [JWT](https://jwt.io/)
-- [JUnit 5](https://junit.org/junit5/docs/current/user-guide/)
+| Resource | URL | How it was used |
+|---|---|---|
+| Spring Boot | https://docs.spring.io/spring-boot/ | Independent backend applications, configuration and health |
+| Spring Security | https://docs.spring.io/spring-security/reference/ | Authentication, JWT and role protection |
+| Spring Data JPA | https://docs.spring.io/spring-data/jpa/reference/ | Database persistence and transaction handling |
+| PostgreSQL | https://www.postgresql.org/docs/ | Relational schema, backup, data migration |
+| React | https://react.dev/ | Investor/admin interface |
+| Vite | https://vite.dev/ | Frontend development and production build |
+| Apache Kafka | https://kafka.apache.org/documentation/ | Event publishing/consumption |
+| Docker | https://docs.docker.com/ | Service image builds and container runtime |
+| Docker Compose | https://docs.docker.com/compose/ | Local/AWS orchestration and health dependencies |
+| Jenkins | https://www.jenkins.io/doc/ | CI/CD, secure credentials and pipeline |
+| Cucumber | https://cucumber.io/docs/ | Behavior-driven API scenarios |
+| AWS EC2 | https://docs.aws.amazon.com/ec2/ | Cloud instance, SSH and security-group setup |
+| Let's Encrypt | https://letsencrypt.org/docs/ | HTTPS certificate issuance |
+| Certbot | https://eff-certbot.readthedocs.io/ | Certificate acquisition and renewal procedure |
+| Stripe Docs | https://docs.stripe.com/ | Sandbox checkout and wallet return URLs |
+| Gemini API | https://ai.google.dev/gemini-api/docs | AI Help integration |
+| OpenAI / Codex | https://openai.com/codex/ | Assisted with code review, CI/CD scripts, debugging and deployment preparation |
+
+---
