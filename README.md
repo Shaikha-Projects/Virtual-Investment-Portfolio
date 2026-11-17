@@ -101,6 +101,14 @@ flowchart TB
 - **Before (Projects 2–3):** One Spring Boot backend containing accounts, investment logic and notifications, accompanied by a React frontend and PostgreSQL.
 - **After (Project 4):** Three separate Spring Boot services with their own build files and Docker images; Kafka handles asynchronous events; Nginx fronts the containerized React/backend APIs; Jenkins publishes images for EC2 deployment.
 
+### Production System Architecture
+
+The application runs on AWS EC2 using Docker Compose,
+with three Spring Boot microservices, React, Nginx,
+PostgreSQL, and Apache Kafka.
+
+![Production System Architecture](<img width="2862" height="1620" alt="system-architecture" src="https://github.com/user-attachments/assets/5646e742-97b6-4ee9-a603-e8526d473ec7" />)
+
 ## Service Boundaries and Data Ownership
 
 | Service | Responsibility / owned behavior | Main communication | Container port |
