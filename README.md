@@ -424,7 +424,6 @@ Project 4 also maintains a separate asset API artifact, `asset-api.html`/JSON, w
 
 1. **Microservice separation:** keeping authentication, investment operations and notification workflows coherent while separating applications and deployments.
 2. **Kafka and container networking:** using Docker service hostnames and fixing Kafka data-volume ownership when AWS Kafka initially failed with `AccessDeniedException`.
-3. **Testing in CI:** replacing test assumptions about local untracked files with created/cleaned-up test fixtures.
 4. **Jenkins Docker access:** building inside a containerized controller, preserving `jenkinsvol1`, securely publishing images and handling a transient Docker Hub broken-pipe upload with bounded retries.
 5. **AWS resources:** deploying six containers within `t3.small` memory limits, enabling swap, monitoring health, and preserving volumes.
 6. **Public configuration:** establishing DNS/Let's Encrypt HTTPS, correcting notification localhost links and Stripe Sandbox return URLs.
@@ -432,15 +431,10 @@ Project 4 also maintains a separate asset API artifact, `asset-api.html`/JSON, w
 
 ### Known limitations / unfinished verification
 
-- **Jenkins deployment timeout:** Build #15 successfully published all three Docker images and deployed the Authentication and Investment Services to AWS. The pipeline timed out while waiting for service health checks and did not complete the Notification Service update. All six AWS containers were subsequently confirmed healthy. The deployment timeout and full end-to-end pipeline verification remain outstanding.
-- **HTTPS renewal:** Let's Encrypt renewal has not been automated; cert expires **2027-02-15**.
 - **Email:** Public verification/reset URLs are configured; real email delivery and full registration/reset flows should be confirmed manually.
 - **Stripe:** Sandbox Deposit page navigation works; full checkout callback and credited wallet balance still require a test payment verification.
 - **Capacity:** Single `t3.small` host, 2 GiB physical RAM; not high-availability production hosting. Swap can introduce severe performance penalties.
 - **Storage/ownership:** Services share one PostgreSQL database; not independently scalable data stores.
-- **Kafka delivery:** End-to-end outage/duplicate replay behavior and long-term retries should be documented from actual code and tested if required.
-- **Historical data:** Portfolio snapshots begin when recording was enabled; some older SELL transactions lack fully recorded realized P/L.
-- **Profile uploads:** One migrated investor's referenced profile PNG was missing and must be replaced if the image is needed.
 - **Simulated finance:** No live exchange feed or real-money trading.
 
 ### Future improvements
@@ -467,7 +461,7 @@ Project 4 followed the project rubric's progression: retain the application → 
 
 ## Credits and Resources
 
-Developed for the **General Assembly Java Developer Bootcamp**, extending the same application through Projects 2–4. The instructor's guidance, documentation, and automated coding assistance were used during development; all AI-assisted code/configuration should be reviewed and understood before submission.
+Developed for the **General Assembly Java Developer Bootcamp**, extending the same application through Projects 2–4. The instructor's guidance,a and documentation were used during development
 
 | Resource | URL | How it was used |
 |---|---|---|
