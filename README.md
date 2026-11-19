@@ -439,12 +439,11 @@ Project 4 also maintains a separate asset API artifact, `asset-api.html`/JSON, w
 
 ### Future improvements
 
-- Complete and verify automated AWS deployment and safe rollback; optionally add pipeline security scanning.
-- Automate HTTPS renewals and monitor service uptime, resource use and certificate expiry.
-- Move database and broker to managed/independent infrastructure for stronger availability; implement stricter data isolation between services.
-- Expand Kafka observability, retry/dead-letter handling and idempotent consumers as supported by business requirements.
-- Improve durable notifications and distributed caching/rate limiting.
-- Add continuous integration tests against a disposable production-like stack.
+- Real-Time Market Data: Integrate a stock market API to replace simulated prices with real market data while keeping trading virtual.
+- Advanced Portfolio Analytics: Add more detailed performance reports, investment comparisons, and risk analysis to help investors evaluate their portfolios.
+- Enhanced AI Help: Expand the AI assistant to explain investment concepts, portfolio performance, and financial terminology.
+- Improved Notifications: Add more notification preferences so investors can choose which alerts they receive and how they receive them.
+- Mobile Application: Develop a mobile version of the platform to make virtual investment management more accessible.
 
 ## Planning and Deliverables
 
